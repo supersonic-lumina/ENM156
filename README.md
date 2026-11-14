@@ -8,6 +8,62 @@ run live (`denoiser/stream.py`) with a latency of one short window.
 
 ## Setup
 
+### Windows
+This section describes how to set up the recommended Windows workflow, which includes working with WSL.
+To get started, [follow this guide](https://www.linuxbuzz.com/how-to-install-ubuntu-on-wsl/) to install a distro.
+
+Since you are running on a host machine, it is recommended to choose a non-secure password that will be easy to type repeatedly
+
+run
+```powershell
+wsl.exe
+```
+You should now a bash prompt, like user@ubuntu:~$
+
+run the following commands in order
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+```bash
+sudo apt install gh
+```
+```bash
+gh auth login
+```
+Answer the prompts, here are recommended answers:
+What account do you want to log into? -> GitHub.com
+
+What is your preferred protocol for Git operations on this host? -> HTTPS
+
+Authenticate Git with your GitHub credentials? -> Yes
+
+How would you like to authenticate GitHub CLI? -> Login with a web browser
+
+
+You will then get a one-time code which you should enter at https://github.com/login/device, and then you're all set
+
+Cd into an appropriate folder and clone the repo:
+```bash
+gh repo clone supersonic-lumina/ENM156
+```
+
+Check if succeded:
+```bash
+cd ENM156
+```
+```bash
+git status
+```
+
+You should get:
+```bash
+On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
+```
+
+
 ```bash
 python3 -m venv --system-site-packages .venv
 .venv/bin/pip install torch-pesq   # only needed for train_pesq.py
