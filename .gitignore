@@ -1,8 +1,16 @@
 # Personal settings (copy config.local.example.toml to make one)
 config.local.toml
 
+# Secrets
+.env
+.env.*
+
 # Environment and caches
 .venv/
+venv/
+env/
+
+# Pycache
 __pycache__/
 
 # Training output and checkpoints
@@ -10,3 +18,13 @@ runs/
 output*/
 old_runs/
 *.pt
+
+# Windows
+*:Zone.Identifier
+
+# IDE settings
+.vscode/
+
+# Unignore
+!*.example
+!*.example.*
