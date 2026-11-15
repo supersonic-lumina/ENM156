@@ -7,7 +7,6 @@ config.local.toml
 
 # Environment and caches
 .venv/
-venv/
 env/
 
 # Pycache
@@ -24,7 +23,3 @@ old_runs/
 
 # IDE settings
 .vscode/
-
-# Unignore
-!*.example
-!*.example.*
