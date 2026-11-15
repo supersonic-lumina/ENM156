@@ -42,14 +42,16 @@ Which parts of workflow do what:
 
 ### Branch Types
 
-* **feat** New functionality
-* **fix** Bug fix
-* **refactor** Code restructure without behavioural changes
-* **test** Adding or improving tests
-* **docs** Adding or improving things that are not active code
-* **chore** Maintenance, fixing dependencies/tools
-* **perf** Optimization, performance improvements
-* **ci** CI/CD changes
+| Type | Description |
+|-:|:-|
+| **feat** | New feature |
+| **fix** | Bug fix |
+| **refactor** | Code restructure without behavioural changes |
+| **test** | Adding or improving tests |
+| **docs** | Adding or improving things that are not active code |
+| **chore** | Maintenance, fixing dependencies/tools |
+| **perf** | Optimization, performance improvements |
+| **ci** | CI/CD changes |
 
 
 ### Branch Format
@@ -91,15 +93,41 @@ PR titles use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ### Definition of done
 
-TODO
+Checklist for when a PR can be merged:
+- [ ] At least 1 approving review
+- [ ] All review feedback implemented
+- [ ] All comments are reasonably responded to and/or resolved
+- [ ] The PR is linked to an issue which it resolves
+
+Only **Squash and merge** is allowed to keep commit history clean. The branch is deleted automatically.
 
 ## Code review
 
-TODO
+**Writing code**
+- Review your own diff first
+- Respond to every comment. Resolve and leave a reaction when addressed, or explain why you disagree.
+- Don't take feedback and rejections personally. Reviews are about code only.
+
+**Reviewing code**
+- Aim to respond whithin one working day. (excluding weekends I guess)
+- Label optional suggestions (nitpicks) with `nit:` so authors know what is necessary and what is a recommendation
+- Explain *why* behing each request. Suggest alternatives when able.
+- Approve when it works as it should and not when its done exactly like you would've.
+- Check not only for correctness, but also for readability, security and whether the work done is relevant to the issue at hand.
+- If work, unrelated to the issue was done in a PR, reject and request for it to be split into a separate issue.
 
 ## Coding standards
 
-TODO
+General conventions:
+- **Naming:** Use `snake_case` for variables, functions, and modules; `PascalCase` for classes and types; and `UPPER_SNAKE_CASE` for constants. Prefer descriptive but longer names over abbreviations.
+- **Type hints:** Add type annotations to function parameters and return values. Only use `Any` if absolutely necessary.
+- **Error handling:** Never silently swallow exceptions, always specify the excpetion kind explicitly.
+- **Dependencies:** Always notify the team before introducing new dependencies. Make sure that their license is compatible with `AGPL-3.0`
+- **Comments and documentation:** Prefer self-documenting code and avoid unnecessary comments that restate the obvious.
+- **Functions and classes:** Keep them small, focused on a single responsibility
+- **Mutability:** Avoid mutable state when possible. Always prefer immutable data structures.
+- **Imports:** Avoid wildcard imports when practical.
+- **Configuration:** Keep your local configuration outside of the source code. If you add a local config, make sure its gitignored
 
 ## Testing
 
@@ -107,6 +135,4 @@ TODO
 
 ## License
 
-Not merged.
-
-TODO
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE). By submitting a contribution, you agree that it is licensed under the same terms. Only submit code you wrote or have the right to submit under these terms.
