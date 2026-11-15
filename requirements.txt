@@ -1,0 +1,28 @@
+# Python >= 3.11 is required
+#
+# Install:
+#   python3 -m venv .venv
+#   .venv/bin/pip install -r requirements.txt
+#
+# GPU: if you need a specific CUDA build of PyTorch, install torch and
+# torchaudio from https://pytorch.org/get-started/locally/ first, then run
+# the command above. pip keeps the version you already have if it satisfies
+# the constraints below.
+
+# --- Core: training, data loading, live denoising ---
+torch>=2.1
+numpy>=1.24
+scipy>=1.10         # denoiser/make_mixtures.py (resampling)
+soundfile>=0.12     # reading and writing audio
+pyarrow>=14         # parquet datasets
+
+# --- Evaluation: evaluate.py ---
+# pesq is a compiled C extension. If pip has to build it, you need a C
+# compiler and the Python headers (Ubuntu/WSL: sudo apt install build-essential python3-dev).
+pesq>=0.0.4
+pystoi>=0.4
+
+# --- PESQ-loss training: train_pesq.py, denoiser/pesq_loss.py ---
+torchaudio>=2.1     # keep in step with your torch version
+torch-pesq>=0.1.2
+torch-stoi>=0.2     # only needed for the optional STOI loss term
