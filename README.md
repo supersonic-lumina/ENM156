@@ -6,6 +6,19 @@ the past half second, or a spiking network (SNN) that remembers the past in
 its neurons (`model.type`). Frames are causal by default, so the same model can
 run live (`denoiser/stream.py`) with a latency of one short window.
 
+## Contents
+ 
+- [Setup](#setup)
+- [Running](#running)
+  - [Training](#training)
+  - [Evaluation](#evaluation)
+  - [Making training data](#making-training-data)
+  - [Tests](#tests)
+- [Checkpoints and data](#checkpoints-and-data)
+- [Layout](#layout)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Setup
 
 Pick your system.
