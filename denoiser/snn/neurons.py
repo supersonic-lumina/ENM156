@@ -174,3 +174,20 @@ class LIF(Leaky):
             return self.run_steps(currents, feedback)
         weight = None if feedback is None else feedback.weight
         return _LIFRun.apply(currents, self.decay, weight, self.threshold, self.slope)
+
+
+class Smooth(Leaky):
+    """Not a spiking neuron: the control that shows what the spikes cost in
+    quality. The same leaky membrane potential, but the output is a smooth
+    value between 0 and 1 (a sigmoid around the threshold) and nothing is reset."""
+
+    def __init__(self, size, decay, threshold=1.0, learn_decay=True):
+        super().__init__(size, decay, learn_decay)
+        self.threshold = threshold
+
+    def step(self, current, v, decay=None):
+        v = torch.addcmul(current, self.decay if decay is None else decay, v)
+        return torch.sigmoid(4 * (v - self.threshold)), v
+
+    def run(self, currents, feedback=None):
+        return self.run_steps(currents, feedback)

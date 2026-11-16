@@ -55,9 +55,10 @@ learn_decay = true # every neuron learns its own decay
 threshold = 1.0 # membrane potential at which a neuron spikes
 surrogate_slope = 25 # steepness of the stand-in gradient of a spike; higher = only neurons near the threshold learn
 steps_per_frame = 1 # time steps per frame, all with the same input; more = finer spike timing at that many times the cost
-skip = false # each layer's input current is also added to the next layer's (same-size layers); helps deep networks train
+skip = false # each layer's input current is also added to the next layer's (where they have the same size); helps deep networks train
 norm = false # batch normalisation of each layer's input current; a fixed scale and shift per neuron once trained
 init_gain = 1.0 # scales the starting weights of the layers fed by spikes; 1 leaves deep layers nearly silent at the start
+spiking = true # false: smooth neurons instead of spikes; not a spiking network, only a control for what spikes cost in quality
 rate_weight = 0.0 # train_pesq.py: loss weight on the mean spikes per neuron per step, for fewer spikes; 0 = off
 
 [train]
