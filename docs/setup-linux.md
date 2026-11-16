@@ -145,6 +145,13 @@ but is much slower.
 | `torch.cuda.is_available()` prints `False` | Check the NVIDIA driver with `nvidia-smi`. On WSL, see the [Windows guide](setup-windows.md#5-gpu-support-optional). |
 | Out of memory while loading data or training | In `config.local.toml`, lower `train.max_train` or `train.batch_size`, or set `data.audio_device = "cpu"` |
 | `No train-*.parquet files in ...` | `data.voicebank_dir` points at the wrong folder. See steps 4 and 5. |
+| `Hash Sum mismatch` during `apt install` or `apt update` | The download is being corrupted on the way, which is common on WSL. Switch to HTTPS with the command below the table, then run `sudo apt clean`, `sudo apt update`, and install again. |
+
+Switching `apt` to HTTPS:
+
+```bash
+sudo sed -i.bak 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g; s|http://security.ubuntu.com|https://security.ubuntu.com|g' /etc/apt/sources.list.d/ubuntu.sources
+```
  
 ## Next steps
  
