@@ -1,10 +1,14 @@
 """Loading VoiceBank-DEMAND clips from the parquet files, fixed-length
 waveform crops, and memory helpers."""
 import ctypes
+import hashlib
 import io
+import os
 import random
+from pathlib import Path
 from typing import NamedTuple
 
+import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import soundfile as sf
@@ -79,11 +83,54 @@ def sample_ladder(cfg):
     return ladder
 
 
-def load_crops(files, max_clips, sample_rate, crop, every=1):
+def cached_pairs(files, sample_rate, cache_dir):
+    """Every clip of the files as (noisy, clean) int16 arrays that live in two
+    files in cache_dir instead of in this process: the arrays are views of
+    those files (memory-mapped), so runs side by side share one copy in RAM,
+    and the system can drop and re-read parts when RAM is short. The first
+    run decodes the clips and writes the files; a run that starts meanwhile
+    waits for it."""
+    stamp = [(f.name, f.stat().st_size, f.stat().st_mtime_ns) for f in files]
+    base = Path(cache_dir) / hashlib.sha1(repr((stamp, sample_rate)).encode()).hexdigest()[:16]
+    names = {part: Path(f"{base}.{part}") for part in ("noisy.i16", "clean.i16", "lengths.npy")}
+    base.parent.mkdir(parents=True, exist_ok=True)
+    with open(f"{base}.lock", "w") as lock:
+        try:
+            import fcntl  # not on Windows: there two first runs may both write, each its own files
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        except ImportError:
+            pass
+        if not names["lengths.npy"].exists():
+            print(f"  writing the decoded audio to {base}.* (once; later runs share it)", flush=True)
+            temp = {part: Path(f"{base}.{os.getpid()}.{part}") for part in names}
+            lengths = []
+            with open(temp["noisy.i16"], "wb") as noisy_file, open(temp["clean.i16"], "wb") as clean_file:
+                for noisy, clean in load_pairs(files, 0, sample_rate, "int16"):
+                    noisy_file.write(noisy.tobytes())
+                    clean_file.write(clean.tobytes())
+                    lengths.append(len(noisy))
+            with open(temp["lengths.npy"], "wb") as f:
+                np.save(f, np.array(lengths, dtype=np.int64))
+            for part in names:  # the lengths last: they mark the cache as complete
+                os.replace(temp[part], names[part])
+    lengths = np.load(names["lengths.npy"])
+    ends = np.cumsum(lengths)
+    # "c": pages are shared with the file until written to, which nothing does
+    noisy, clean = (np.asarray(np.memmap(names[part], dtype=np.int16, mode="c")) for part in ("noisy.i16", "clean.i16"))
+    return [(noisy[end - length:end], clean[end - length:end]) for end, length in zip(ends, lengths)]
+
+
+def load_crops(files, max_clips, sample_rate, crop, every=1, cache_dir=None):
     """Clips at least `crop` samples long, as (noisy, clean) int16 arrays: the
     16-bit values of the files, half the RAM of float32. random_crops and
-    first_crops turn their pieces into floats."""
-    return [(n, c) for n, c in load_pairs(files, max_clips, sample_rate, "int16", every) if len(n) >= crop]
+    first_crops turn their pieces into floats. With a cache_dir the audio is
+    shared between runs (cached_pairs) instead of loaded into this one."""
+    if cache_dir:
+        pairs = cached_pairs(files, sample_rate, cache_dir)[::every]
+        pairs = pairs[:max_clips] if max_clips else pairs
+    else:
+        pairs = load_pairs(files, max_clips, sample_rate, "int16", every)
+    return [(n, c) for n, c in pairs if len(n) >= crop]
 
 
 def to_float(int16_wav, device):

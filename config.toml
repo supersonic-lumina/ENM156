@@ -12,6 +12,9 @@ val_dir = "" # folder with val-*.parquet; "" = voicebank_dir, which has none, so
              # (the test set itself) is used for validation
 test_dir = "" # folder with test-*.parquet; "" = voicebank_dir
 sample_rate = 16000 # Hz
+audio_cache = "runs/audio_cache" # train_pesq.py: the decoded training audio is written here once (VoiceBank: ~9 GB) and
+                                 # shared by every run, so runs side by side need its RAM only once; "" = each
+                                 # run loads its own copy into RAM instead
 device = "" # "" = cuda if available, else cpu
 audio_device = "" # train.py: where the training audio is kept: "" = same as device, "cpu" saves VRAM
 vram_fraction = 0.9 # share of the GPU's memory PyTorch may use: the rest is left for the desktop when
