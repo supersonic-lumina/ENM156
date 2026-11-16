@@ -28,6 +28,8 @@ Pick your system.
 | **Linux** | [docs/setup-linux.md](docs/setup-linux.md) |
 | **Windows** | [docs/setup-windows.md](docs/setup-windows.md) |
 
+Where to download the datasets is in [docs/datasets.md](docs/datasets.md).
+
 If you already have Python 3.11 or newer, and the dataset, the short version is:
  
 ```bash

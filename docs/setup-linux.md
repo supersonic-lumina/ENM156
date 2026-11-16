@@ -95,7 +95,7 @@ command above.
  
 Training and evaluation use **VoiceBank-DEMAND-16k** as parquet files.
  
-<!-- TODO: add the download link or instructions the team uses. -->
+Where to download it, and the other datasets the mixtures need, is in [datasets.md](datasets.md).
  
 The default location is `data/VoiceBank-DEMAND-16k/data` inside the repository (the path is
 relative to `config.toml`). It should contain files named `train-*.parquet` and

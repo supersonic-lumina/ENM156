@@ -23,3 +23,6 @@ old_runs/
 
 # IDE settings
 .vscode/
+
+# Datasets (see docs/datasets.md)
+data/
