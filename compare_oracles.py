@@ -87,7 +87,7 @@ def main():
                 r["snr"].append(snr(est, clean).item())
                 r["si_sdr"].append(si_sdr(est, clean).item())
                 for metric, value in score_pair(clean.numpy(), est.numpy(), sr).items():
-                    r[metric].append(value)
+                    r.setdefault(metric, []).append(value)
                 energy[name] += [noise[~speech].sum().item(), error[~speech].sum().item(),
                                  noise[speech].sum().item(), error[speech].sum().item()]
 

@@ -71,7 +71,7 @@ All commands are run from the repository root. `.venv/bin/python` is the Python 
 ### Evaluation
 
 ```bash
-.venv/bin/python evaluate.py --model runs/default/model.pt  # PESQ / STOI on test clips
+.venv/bin/python evaluate.py --model runs/default/model.pt  # PESQ, STOI, CSIG/CBAK/COVL, SSNR on test clips
 .venv/bin/python compare_oracles.py --filterbank runs/filterbank/filterbank.pt
 ```
 
