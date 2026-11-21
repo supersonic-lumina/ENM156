@@ -1,0 +1,64 @@
+# The 1 x 256 recurrent SNN of runs/snn_1x256 (RESULTS_2026-11-15_SNN_size_pruning.md):
+# test PESQ 2.845, STOI 0.931, about 77 min on CPU or 30 min on an RX 7900 XTX.
+#
+#   .venv/bin/python train_pesq.py --config experiments/snn-1x256.toml --set train.output_dir=runs/snn_1x256
+#
+# Trained on the VCTK + DEMAND 8 s mixtures (denoiser/make_mixtures.py vctk_demand): point
+# data.train_dir and data.val_dir at them in config.local.toml. Tested on VoiceBank-DEMAND.
+
+[stft]
+n_fft = 512
+hop = 128
+long_factor = 0
+causal = true
+
+[model]
+type = "snn"
+output = "complex_mask"
+compress = 0.3
+mag_weight = 0.6
+mag_input = true
+mask_bound = 1.0
+filterbank = ""
+
+[snn]
+hidden = [256]
+recurrent = true
+decay = 0.5
+readout_decay = 0.5
+learn_decay = true
+threshold = 1.0
+surrogate_slope = 5
+steps_per_frame = 1
+skip = false
+norm = false
+init_gain = 1.0
+spiking = true
+rate_weight = 0.0
+
+[train]
+epochs = 24
+lr = 1e-3
+lr_schedule = "wsd"
+warmup_steps = 500
+decay_share = 0.5
+lr_end = 1e-5
+max_train = 0
+max_val = 0
+train_every = 1
+val_every = 14
+seed = 0
+clean_share = 0.1
+num_samples = 8
+save_checkpoints = 2
+init_from = ""
+
+[pesq]
+mse_weight = 0.25
+mse_scale = 0.003
+stoi_weight = 0.25
+stoi_scale = 0.06
+init_from = ""
+batch_size = 8
+crop_seconds = 2.0
+crop_step = 1

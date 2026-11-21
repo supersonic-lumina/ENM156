@@ -15,7 +15,7 @@ import argparse
 import torch
 
 from denoiser.config import (add_config_args, describe_device, get_device, load_config,
-                             log_output, print_config, resolve_path)
+                             log_output, print_config, resolve_path, save_run_config)
 from denoiser.data import (epoch_crops, gather_segments, load_pairs, release_freed_memory,
                            sample_ladder, split_files, stack_waves, swap_in_clean)
 from denoiser.model import CheckpointSaver, LrSchedule, describe_model, initial_model, save_checkpoint
@@ -62,6 +62,7 @@ def main():
     device, audio_device = get_device(cfg), get_device(cfg, "audio_device")
     print(f"Using device: {describe_device(device)}, training audio on {audio_device}")
     model, cfg = initial_model(cfg, device, tr["init_from"])  # before loading: it can set the stft
+    save_run_config(cfg, out_dir / "config.toml")  # after initial_model: with init_from, its model settings
     print_config(cfg, ("stft", "model", "train"))
     print(describe_model(cfg))
 
