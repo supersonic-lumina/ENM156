@@ -12,6 +12,7 @@ import json
 import shlex
 import sys
 import tomllib
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
@@ -53,7 +54,7 @@ def read_toml(path: Path) -> dict[str, object]:
         return tomllib.load(f)
 
 
-def load_config(overrides: list[str] = ()) -> dict[str, object]:
+def load_config(overrides: Sequence[str] = ()) -> dict[str, object]:
     """The settings: config.toml, config.local.toml, then `overrides` in order:
     --set items ("section.key=value") and --config files ("@" + path)."""
     cfg = read_toml(ROOT / "config.toml")
@@ -61,7 +62,10 @@ def load_config(overrides: list[str] = ()) -> dict[str, object]:
         merge(cfg, read_toml(LOCAL_CONFIG))
     for item in overrides:
         if item.startswith(CONFIG_FILE_MARK):
-            path = resolve_path(item[len(CONFIG_FILE_MARK):])
+            file = item[len(CONFIG_FILE_MARK):].strip()
+            if not file:
+                raise SystemExit("--config: missing file path")
+            path = resolve_path(file)
             if not path.is_file():
                 raise SystemExit(f"--config: no such file {path}")
             merge(cfg, read_toml(path))
@@ -79,56 +83,65 @@ def add_config_args(ap):
                          "config.toml (repeatable; applied in order with --set).")
 
 
-# Settings that describe the machine rather than the run: left out of a run's
-# config.toml (as comments), so loading someone else's doesn't point your
-# runs at their folders or GPU.
+# Machine-specific settings (paths, GPU), saved only as comments in a run's config.toml.
 MACHINE_SETTINGS = {
     "data": ("voicebank_dir", "train_dir", "val_dir", "test_dir", "audio_cache",
              "device", "audio_device", "vram_fraction"),
     "mix": ("vctk_dir", "demand_dir", "voicebank_logs"),
 }
-# Left out too: loading a run's settings must not write into that run's folder.
+# Also saved only as comments, so loading a run's settings can't overwrite that run.
 OUTPUT_SETTINGS = {"train": ("output_dir",), "filterbank": ("output_dir",)}
 
 
-def toml_value(value) -> str:
+def toml_value(value: object) -> str:
     if isinstance(value, bool):
-        return "true" if value else "false"
+        return str(value).lower()
     if isinstance(value, (int, float)):
         return repr(value)
     if isinstance(value, str):
         return json.dumps(value)  # a JSON string is a valid TOML basic string
     if isinstance(value, list):
-        return "[" + ", ".join(toml_value(v) for v in value) + "]"
+        return f"[{', '.join(toml_value(v) for v in value)}]"
     raise TypeError(f"can't write {value!r} ({type(value).__name__}) as a TOML value")
 
 
-def save_run_config(cfg: dict, path: Path) -> None:
+def save_run_config(cfg: dict[str, object], path: Path) -> None:
     """Writes the settings of a run to `path` as TOML that --config can load:
     every section and key, except the machine and output settings above,
     which are listed as comments instead."""
-    left_out = {**MACHINE_SETTINGS}
+    left_out = dict(MACHINE_SETTINGS)
     for section, keys in OUTPUT_SETTINGS.items():
         left_out[section] = left_out.get(section, ()) + keys
-    lines = [f"# Settings of this run, written {datetime.now():%Y-%m-%d %H:%M} by:",
-             f"#   {command_line()}",
-             "# Repeat it with --config <this file> --set <section>.output_dir=<a new folder>.",
-             "# Left out because they belong to the machine or the run folder (set your own):"]
-    lines += [f"#   {section}.{key} = {toml_value(home_as_tilde(cfg[section][key]))}"
-              for section, keys in left_out.items() if section in cfg for key in keys if key in cfg[section]]
+
+    lines = [
+        f"# Settings of this run, written {datetime.now():%Y-%m-%d %H:%M} by:",
+        f"#   {command_line()}",
+        "# Repeat it with --config <this file> --set <section>.output_dir=<a new folder>.",
+        "# Left out because they belong to the machine or the run folder (set your own):",
+    ]
+    for section, keys in left_out.items():
+        values = cfg.get(section)
+        if not isinstance(values, dict):
+            continue
+        for key in keys:
+            if key in values:
+                lines.append(f"#   {section}.{key} = {toml_value(home_as_tilde(values[key]))}")
+
     for section, values in cfg.items():
         if not isinstance(values, dict):
             raise TypeError(f"setting {section!r} is not in a [section]")
-        kept = {k: v for k, v in values.items() if k not in left_out.get(section, ())}
-        lines += ["", f"[{section}]"] + [f"{key} = {toml_value(value)}" for key, value in kept.items()]
+        lines.extend(["", f"[{section}]"])
+        for key, value in values.items():
+            if key not in left_out.get(section, ()):
+                lines.append(f"{key} = {toml_value(value)}")
     Path(path).write_text("\n".join(lines) + "\n")
 
 
-def home_as_tilde(value):
+def home_as_tilde(value: object) -> object:
     """A path under the home folder as ~/..., so a shared config.toml doesn't carry your user name."""
-    home = str(Path.home())
-    if isinstance(value, str) and (value == home or value.startswith(home + "/")):
-        return "~" + value[len(home):]
+    if isinstance(value, str) and Path(value).is_relative_to(Path.home()):
+        rel = Path(value).relative_to(Path.home()).as_posix()
+        return "~" if rel == "." else f"~/{rel}"
     return value
 
 

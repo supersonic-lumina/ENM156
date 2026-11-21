@@ -11,6 +11,7 @@ run live (`denoiser/stream.py`) with a latency of one short window.
 - [Setup](#setup)
 - [Running](#running)
   - [Training](#training)
+  - [Settings files](#settings-files)
   - [Evaluation](#evaluation)
   - [Making training data](#making-training-data)
   - [Tests](#tests)

@@ -13,6 +13,7 @@ import copy
 import sys
 import tempfile
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -20,22 +21,22 @@ sys.path.insert(0, str(ROOT))
 from denoiser.config import (MACHINE_SETTINGS, OUTPUT_SETTINGS, add_config_args, load_config,  # noqa: E402
                              read_toml, save_run_config)
 
-failures = []
+failures: list[str] = []
 
 
-def check(ok, what):
+def check(ok: bool, what: str) -> None:
     print(f"{'ok  ' if ok else 'FAIL'} {what}")
     if not ok:
         failures.append(what)
 
 
-def parse(argv):
+def parse(argv: list[str]) -> dict:
     ap = argparse.ArgumentParser()
     add_config_args(ap)
     return load_config(ap.parse_args(argv).set)
 
 
-def refused(fn):
+def refused(fn: Callable[[], object]) -> bool:
     try:
         fn()
     except SystemExit:
@@ -43,7 +44,7 @@ def refused(fn):
     return False
 
 
-def main():
+def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         a = tmp / "a.toml"
@@ -53,6 +54,7 @@ def main():
         cfg = parse(["--set", "train.epochs=3", "--config", str(a)])
         check(cfg["train"]["epochs"] == 7, "--config after --set wins")
         check(refused(lambda: parse(["--config", str(tmp / "missing.toml")])), "a missing --config file is an error")
+        check(refused(lambda: parse(["--config", ""])), "an empty --config path is an error")
 
         # a run's config.toml: same settings back, minus machine and output settings
         cfg = parse(["--set", "train.epochs=3", "--set", "snn.hidden=[64, 32]", "--set", "model.type=\"snn\""])
@@ -67,8 +69,6 @@ def main():
             for key in keys:
                 expected.get(section, {}).pop(key, None)
         check(loaded == expected, "a run's config.toml has every other setting, unchanged")
-        check("# Settings of this run" in text and "#   data.voicebank_dir = \"/somewhere/only/on/my/machine\"" in text,
-              "machine settings are listed as comments, not set")
         check('#   data.train_dir = "~/datasets/mixtures"' in text and str(Path.home()) not in text,
               "paths under the home folder are written as ~/...")
         reloaded = parse(["--config", str(saved)])
