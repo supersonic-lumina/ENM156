@@ -48,12 +48,12 @@ def parse_set(item):
 CONFIG_FILE_MARK = "@"  # how --config files are told apart from --set items in the same list
 
 
-def read_toml(path: Path) -> dict:
+def read_toml(path: Path) -> dict[str, object]:
     with open(path, "rb") as f:
         return tomllib.load(f)
 
 
-def load_config(overrides: list[str] = ()) -> dict:
+def load_config(overrides: list[str] = ()) -> dict[str, object]:
     """The settings: config.toml, config.local.toml, then `overrides` in order:
     --set items ("section.key=value") and --config files ("@" + path)."""
     cfg = read_toml(ROOT / "config.toml")
