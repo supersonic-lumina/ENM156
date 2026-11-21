@@ -5,6 +5,8 @@ VoiceBank-DEMAND-16k: a frame-by-frame MLP, a TCN that also looks at
 the past half second, or a spiking network (SNN) that remembers the past in
 its neurons (`model.type`). Frames are causal by default, so the same model can
 run live (`denoiser/stream.py`) with a latency of one short window.
+How the spiking network works, and what each `[snn]` setting does, is
+explained in [docs/snn.md](docs/snn.md).
 
 ## Contents
  
