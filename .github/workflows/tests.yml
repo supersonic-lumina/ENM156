@@ -26,6 +26,9 @@ jobs:
           pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
 
+      - name: Check that every file compiles
+        run: python -m compileall -q -x '/\.' .
+
       - name: Run tests
         run: |
           for t in tests/test_*.py; do
