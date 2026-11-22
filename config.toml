@@ -87,7 +87,8 @@ num_samples = 8 # 0 = none; otherwise clean/noisy/denoised triples are saved aft
 output_dir = "runs/default"
 save_checkpoints = 2 # besides the final model.pt, after each epoch: 0 = nothing, 1 = every epoch (epoch_NNN.pt),
                      # 2 = the best so far (best.pt), 3 = the 3 best (best_epoch_NNN.pt); "best" = val_loss
-                     # in train.py, val_PESQ in train_pesq.py
+                     # in train.py, val_PESQ in train_pesq.py. If the last epoch is kept too, model.pt is the
+                     # same file under a second name (no second copy)
 init_from = "" # train.py: a model.pt to continue training from; "" = start fresh
 
 [filterbank]

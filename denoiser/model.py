@@ -2,6 +2,9 @@
 remember the settings they were trained with."""
 import copy
 import math
+import os
+import shutil
+from pathlib import Path
 
 import torch
 
@@ -81,9 +84,17 @@ def describe_model(cfg):
             f"({stft['n_fft'] / sr * 1000:.0f} ms), hop {stft['hop']}{long}")
 
 
-def save_checkpoint(model, cfg, path):
+def save_checkpoint(model, cfg, path, **info):
+    """Writes the model and the settings needed to rebuild it, plus `info`
+    (e.g. epoch=, val_PESQ=) to say which model it is. The file is written
+    under a temporary name and then renamed, so an interrupted save never
+    leaves a half-written checkpoint, and a file linked to this path (see
+    CheckpointSaver.finish) is replaced, not changed."""
+    path = Path(path)
+    tmp = path.with_name(path.name + ".tmp")
     torch.save({"config": {s: cfg[s] for s in MODEL_SECTIONS},
-                "state_dict": model.state_dict()}, path)
+                "state_dict": model.state_dict(), "info": info}, tmp)
+    os.replace(tmp, path)
 
 
 class CheckpointSaver:
@@ -91,36 +102,74 @@ class CheckpointSaver:
     besides the final model.pt. train.save_checkpoints picks which:
       0 = none, 1 = every epoch (epoch_NNN.pt), 2 = the best so far (best.pt),
       3 = the 3 best (best_epoch_NNN.pt; the worst of them is deleted)
-    `higher_is_better` says which way the validation score goes."""
+    `higher_is_better` says which way the validation score `metric` goes. A
+    score that isn't a number (nan, inf: a run that broke down) is never the
+    best. Each file records its epoch and score (checkpoint["info"])."""
 
     MODES = (0, 1, 2, 3)
+    PATTERNS = {1: "epoch_*.pt", 2: "best.pt", 3: "best_epoch_*.pt"}
 
-    def __init__(self, mode, out_dir, higher_is_better, keep=3):
+    def __init__(self, mode, out_dir, higher_is_better, metric="val", keep=3):
         if mode not in self.MODES:
             raise SystemExit(f"train.save_checkpoints must be one of {self.MODES}, got {mode!r}")
-        self.mode, self.out_dir, self.keep = mode, out_dir, keep
+        self.mode, self.out_dir, self.keep, self.metric = mode, Path(out_dir), keep, metric
         self.sign = 1 if higher_is_better else -1
-        self.best = []  # (score, path) of the checkpoints kept, best first
+        self.best = []  # (score, epoch, path) of the checkpoints kept, best first
+        self.last = None  # (epoch, path) of the file holding the latest epoch's model, if saved
+        old = sorted(self.out_dir.glob(self.PATTERNS[mode])) if mode else []
+        if old:
+            print(f"Note: {self.out_dir} already has {', '.join(p.name for p in old)} from an earlier run; "
+                  f"files this run doesn't overwrite are left as they are")
+
+    def better(self, score, than):
+        """Whether `score` is better than `than` (None: nothing yet)."""
+        if not math.isfinite(score):
+            return False
+        return than is None or not math.isfinite(than) or self.sign * score > self.sign * than
 
     def epoch_done(self, model, cfg, epoch, score):
+        self.last = None
         if self.mode == 1:
-            self._save(model, cfg, self.out_dir / f"epoch_{epoch:03d}.pt")
+            self._save(model, cfg, self.out_dir / f"epoch_{epoch:03d}.pt", epoch, score)
         elif self.mode == 2:
-            if not self.best or self.sign * score > self.sign * self.best[0][0]:
-                self.best = [(score, self.out_dir / "best.pt")]
-                self._save(model, cfg, self.best[0][1])
+            if self.better(score, self.best[0][0] if self.best else None):
+                self.best = [(score, epoch, self.out_dir / "best.pt")]
+                self._save(model, cfg, self.best[0][2], epoch, score)
         elif self.mode == 3:
-            if len(self.best) < self.keep or self.sign * score > self.sign * self.best[-1][0]:
+            if self.better(score, None if len(self.best) < self.keep else self.best[-1][0]):
                 path = self.out_dir / f"best_epoch_{epoch:03d}.pt"
-                self._save(model, cfg, path)
-                self.best.append((score, path))
+                self._save(model, cfg, path, epoch, score)
+                self.best.append((score, epoch, path))
                 self.best.sort(key=lambda b: -self.sign * b[0])
-                for _, old in self.best[self.keep:]:
+                for _, _, old in self.best[self.keep:]:
                     old.unlink(missing_ok=True)
                 del self.best[self.keep:]
 
-    def _save(self, model, cfg, path):
-        save_checkpoint(model, cfg, path)
+    def finish(self, model, cfg, path, epoch, score):
+        """Writes the final model to `path`. If the last epoch's model is
+        already in a checkpoint (it was the best, or every epoch is kept),
+        `path` becomes a second name of that file (a hard link, or a copy
+        where the file system has none) instead of a second copy of it."""
+        path = Path(path)
+        if self.last is not None and self.last[0] == epoch and self.last[1].exists():
+            tmp = path.with_name(path.name + ".tmp")
+            tmp.unlink(missing_ok=True)
+            try:
+                os.link(self.last[1], tmp)
+            except OSError:
+                shutil.copyfile(self.last[1], tmp)
+            os.replace(tmp, path)
+            print(f"Saved model to {path} (the same file as {self.last[1].name}: the last epoch was kept)")
+        else:
+            save_checkpoint(model, cfg, path, epoch=epoch, **{self.metric: score})
+            print(f"Saved model to {path}")
+        if self.mode in (2, 3) and self.best:
+            print("  best: " + ", ".join(f"{p.name} = epoch {e} ({self.metric} {s:.4f})"
+                                        for s, e, p in self.best))
+
+    def _save(self, model, cfg, path, epoch, score):
+        save_checkpoint(model, cfg, path, epoch=epoch, **{self.metric: score})
+        self.last = (epoch, path)
         print(f"  saved {path.name}")
 
 

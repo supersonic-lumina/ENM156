@@ -21,7 +21,7 @@ from denoiser.config import (add_config_args, describe_device, get_device, load_
                              log_output, print_config, resolve_path)
 from denoiser.data import (load_crops, load_pairs, random_crops, sample_ladder, split_files,
                            swap_in_clean)
-from denoiser.model import CheckpointSaver, LrSchedule, describe_model, initial_model, save_checkpoint
+from denoiser.model import CheckpointSaver, LrSchedule, describe_model, initial_model
 from denoiser.features import analysis
 from denoiser.pesq_loss import make_pesq_loss
 from denoiser.pipeline import enhance, filterbank, loss_fn, run_model, save_samples, target_frames
@@ -125,7 +125,7 @@ def main():
     opt = torch.optim.Adam(model.parameters(), lr=tr["lr"])
     criterion = CombinedLoss(cfg, device, sr)
     step = round(cfg["pesq"]["crop_step"] * sr)
-    saver = CheckpointSaver(tr["save_checkpoints"], out_dir, higher_is_better=True)
+    saver = CheckpointSaver(tr["save_checkpoints"], out_dir, higher_is_better=True, metric="val_PESQ")
 
     print(f"noisy val_PESQ (baseline): {mean_mos(criterion.pesq, val, cfg, device, step):.3f}")
     size = cfg["pesq"]["batch_size"]
@@ -161,8 +161,7 @@ def main():
               + (f"  (skipped {skipped} non-finite batches)" if skipped else ""))
         saver.epoch_done(model, cfg, epoch, val_pesq)
 
-    save_checkpoint(model, cfg, out_dir / "model.pt")
-    print(f"Saved model to {out_dir / 'model.pt'}")
+    saver.finish(model, cfg, out_dir / "model.pt", tr["epochs"], val_pesq)
 
     if tr["num_samples"]:
         save_samples(model, sample_ladder(cfg), cfg, device, out_dir)

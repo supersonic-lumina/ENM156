@@ -18,7 +18,7 @@ from denoiser.config import (add_config_args, describe_device, get_device, load_
                              log_output, print_config, resolve_path)
 from denoiser.data import (epoch_crops, gather_segments, load_pairs, release_freed_memory,
                            sample_ladder, split_files, stack_waves, swap_in_clean)
-from denoiser.model import CheckpointSaver, LrSchedule, describe_model, initial_model, save_checkpoint
+from denoiser.model import CheckpointSaver, LrSchedule, describe_model, initial_model
 from denoiser.pipeline import loss_fn, save_samples, segment_frames
 
 
@@ -76,7 +76,7 @@ def main():
     print(f"  {sum(p.numel() for p in model.parameters()) / 1e6:.2f} M parameters")
     opt = torch.optim.Adam(model.parameters(), lr=tr["lr"])
 
-    saver = CheckpointSaver(tr["save_checkpoints"], out_dir, higher_is_better=False)
+    saver = CheckpointSaver(tr["save_checkpoints"], out_dir, higher_is_better=False, metric="val_loss")
     crop, history = tr["crop_frames"], model.context - 1
     crops_per_batch = max(1, tr["batch_size"] // crop)
     print(f"  crops of {crop} frames + {history} frames of history, {crops_per_batch} per batch")
@@ -105,8 +105,7 @@ def main():
               f"lr={lr:.1e}")
         saver.epoch_done(model, cfg, epoch, val_loss)
 
-    save_checkpoint(model, cfg, out_dir / "model.pt")
-    print(f"Saved model to {out_dir / 'model.pt'}")
+    saver.finish(model, cfg, out_dir / "model.pt", tr["epochs"], val_loss)
 
     if tr["num_samples"]:
         save_samples(model, sample_ladder(cfg), cfg, device, out_dir)
