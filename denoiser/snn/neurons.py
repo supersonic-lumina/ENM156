@@ -37,29 +37,34 @@ def spike(x, slope):
 # run() over a whole sequence with a hand-written backward pass (backpropagation
 # through time). The result and gradients are those of step() in a loop, but
 # autograd records one node per sequence instead of several per time step,
-# which is most of the cost for small layers. The loops stay in Python.
+# which is most of the cost for small layers. The loops stay in Python, so
+# each time step costs a few GPU kernel launches; to keep that number low,
+# every step writes straight into time-major (T, B, n) buffers (no copies)
+# and the backward pass precomputes what doesn't depend on the step before.
+
 
 class _LeakyRun(torch.autograd.Function):
     """v_t = decay * v_(t-1) + current_t, from v = 0; output v_t."""
 
     @staticmethod
     def forward(ctx, currents, decay):
-        out = torch.empty_like(currents)
-        v = torch.zeros_like(currents[:, 0])
-        for t in range(currents.shape[1]):
-            v = torch.addcmul(currents[:, t], decay, v)
-            out[:, t] = v
+        out = currents.new_empty(currents.shape[1], currents.shape[0], currents.shape[2])
+        out[0] = currents[:, 0]
+        for t in range(1, currents.shape[1]):
+            torch.addcmul(currents[:, t], decay, out[t - 1], out=out[t])
+        out = out.transpose(0, 1)
         ctx.save_for_backward(out, decay)
         return out
 
     @staticmethod
     def backward(ctx, grad):
         out, decay = ctx.saved_tensors
-        g_current = torch.empty_like(grad)
-        g = torch.zeros_like(grad[:, 0])
-        for t in reversed(range(grad.shape[1])):
-            g = torch.addcmul(grad[:, t], decay, g)  # through v_t, now and in all later steps
-            g_current[:, t] = g
+        n_steps = grad.shape[1]
+        g = grad.new_empty(n_steps, grad.shape[0], grad.shape[2])
+        g[-1] = grad[:, -1]
+        for t in reversed(range(n_steps - 1)):  # through v_t, now and in all later steps
+            torch.addcmul(grad[:, t], decay, g[t + 1], out=g[t])
+        g_current = g.transpose(0, 1)
         g_decay = None
         if ctx.needs_input_grad[1]:
             g_decay = (g_current[:, 1:] * out[:, :-1]).sum((0, 1))
@@ -72,46 +77,52 @@ class _LIFRun(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, currents, decay, weight, threshold, slope):
-        before = torch.empty_like(currents)  # membrane potentials before the reset
-        spikes = torch.empty_like(currents)
-        v = torch.zeros_like(currents[:, 0])
-        s = None
-        for t in range(currents.shape[1]):
-            current = currents[:, t]
+        n_steps = currents.shape[1]
+        shape = (n_steps, currents.shape[0], currents.shape[2])
+        before = currents.new_empty(shape)  # membrane potentials before the reset
+        spikes = currents.new_empty(shape)
+        v = None
+        for t in range(n_steps):
             if weight is not None and t:
-                current = torch.addmm(current, s, weight.t())
-            v = torch.addcmul(current, decay, v)
-            s = (v > threshold).to(v.dtype)
-            before[:, t], spikes[:, t] = v, s
-            v = torch.sub(v, s, alpha=threshold)
+                torch.addmm(currents[:, t], spikes[t - 1], weight.t(), out=before[t])
+                before[t].addcmul_(decay, v)
+            elif t:
+                torch.addcmul(currents[:, t], decay, v, out=before[t])
+            else:
+                before[0] = currents[:, 0]
+            torch.gt(before[t], threshold, out=spikes[t])
+            v = torch.sub(before[t], spikes[t], alpha=threshold)
         ctx.save_for_backward(before, spikes, decay, weight)
         ctx.threshold, ctx.slope = threshold, slope
-        return spikes
+        return spikes.transpose(0, 1)
 
     @staticmethod
     def backward(ctx, grad):
+        # With s the surrogate slope at step t, the gradient of the potential
+        # before the reset is
+        #   g_t = s * (grad_t + g_(t+1) @ W) + decay * (1 - threshold * s) * g_(t+1)
+        # (the first term through the spike, the second through the potential
+        # kept after the reset). Everything but g_(t+1) is known up front.
         before, spikes, decay, weight = ctx.saved_tensors
         threshold = ctx.threshold
+        grad = grad.transpose(0, 1)  # time-major, like the saved tensors
         surrogate = (before - threshold).abs_().mul_(ctx.slope).add_(1).square_().reciprocal_()
-        g_before = torch.empty_like(grad)
-        g_next = None  # gradient of the potential before the reset, one step later
-        for t in reversed(range(grad.shape[1])):
-            if g_next is None:
-                g = grad[:, t] * surrogate[:, t]  # the last potential only matters through its spike
-            else:
-                g_after = decay * g_next  # potential after the reset, carried into the next step
-                g_spike = grad[:, t] if weight is None else torch.addmm(grad[:, t], g_next, weight)
-                g = torch.addcmul(g_after, surrogate[:, t], g_spike - threshold * g_after)
-            g_before[:, t] = g
-            g_next = g
+        through_spike = surrogate * grad
+        kept = (1 - threshold * surrogate).mul_(decay)
+        g = torch.empty_like(through_spike)
+        g[-1] = through_spike[-1]  # the last potential only matters through its spike
+        for t in reversed(range(grad.shape[0] - 1)):
+            torch.addcmul(through_spike[t], kept[t], g[t + 1], out=g[t])
+            if weight is not None:
+                g[t].addcmul_(surrogate[t], g[t + 1] @ weight)
         g_decay = g_weight = None
         if ctx.needs_input_grad[1]:
-            after = before[:, :-1] - threshold * spikes[:, :-1]
-            g_decay = (g_before[:, 1:] * after).sum((0, 1))
+            after = before[:-1] - threshold * spikes[:-1]
+            g_decay = (g[1:] * after).sum((0, 1))
         if weight is not None and ctx.needs_input_grad[2]:
             n = grad.shape[-1]
-            g_weight = g_before[:, 1:].reshape(-1, n).t() @ spikes[:, :-1].reshape(-1, n)
-        return g_before, g_decay, g_weight, None, None
+            g_weight = g[1:].reshape(-1, n).t() @ spikes[:-1].reshape(-1, n)
+        return g.transpose(0, 1), g_decay, g_weight, None, None
 
 
 class Leaky(nn.Module):
