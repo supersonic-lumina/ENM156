@@ -11,6 +11,7 @@ run live (`denoiser/stream.py`) with a latency of one short window.
 - [Setup](#setup)
 - [Running](#running)
   - [Training](#training)
+  - [Settings files](#settings-files)
   - [Evaluation](#evaluation)
   - [Making training data](#making-training-data)
   - [Tests](#tests)
@@ -68,6 +69,22 @@ All commands are run from the repository root. `.venv/bin/python` is the Python 
 .venv/bin/python train_filterbank.py                        # learned encoder/decoder (step 1)
 ```
 
+### Settings files
+
+Instead of many `--set` flags, settings can come from a TOML file with `--config`; `--config`
+and `--set` apply in the order given, so the later one wins:
+
+```bash
+.venv/bin/python train_pesq.py --config experiments/snn-1x256.toml --set train.output_dir=runs/snn_1x256
+.venv/bin/python train_pesq.py --config runs/snn_1x256/config.toml --set train.epochs=5 --set train.output_dir=runs/snn_short
+```
+
+Every training run writes the settings it used to `config.toml` in its output folder, and its
+`log.txt` starts with the exact command. To repeat or share a run, pass its `config.toml` with
+`--config`. Settings that belong to one machine (dataset folders, device) and the output
+folder are left out of it as comments, so someone else's file keeps your own paths.
+`experiments/` holds the settings of runs worth repeating.
+
 ### Evaluation
 
 ```bash
@@ -98,6 +115,7 @@ Or one at a time:
 .venv/bin/python tests/test_snn_neurons.py    # spiking neurons on hand-made inputs
 .venv/bin/python tests/test_snn_stream.py     # spiking network: live == offline == frame by frame
 .venv/bin/python tests/test_snn_stats.py      # operation counts against counts by hand
+.venv/bin/python tests/test_config.py         # --config / --set order, a run's config.toml
 ```
 
 ## Checkpoints and data
@@ -123,7 +141,8 @@ types out, and validate on VCTK speakers that VoiceBank doesn't use (`[mix]`).
 | `config.toml` | shared default settings, documented inline |
 | `requirements.txt` | Python dependencies |
 | `docs/` | other documentation |
-| `denoiser/config.py` | settings loading: config.toml → config.local.toml → `--set` |
+| `experiments/` | settings files of runs worth repeating, for `--config` |
+| `denoiser/config.py` | settings loading: config.toml → config.local.toml → `--config` / `--set`; a run's config.toml |
 | `denoiser/data.py` | reading clips from the parquet files, training crops |
 | `denoiser/make_mixtures.py` | 8 s train/val mixtures from VoiceBank, VCTK and DEMAND |
 | `denoiser/features.py` | causal / centred STFT, long-window pooling, compression |
