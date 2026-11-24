@@ -26,7 +26,7 @@ speech (see `model.output`), usually a *mask*.
 
 The three model types (`model.type`) differ in how they remember the past:
 
-| | Remembers the past by | Output of a neuron |
+| model.type | Remembers the past by | Output of a neuron |
 |---|---|---|
 | `mlp` | not at all: every frame on its own | a real number |
 | `tcn` | looking at a window of past frames (its receptive field) | a real number |
