@@ -92,6 +92,8 @@ def main():
                                  noise[speech].sum().item(), error[speech].sum().item()]
 
     print(f"{'':42s}{'SNR':>7s}{'SI-SDR':>8s}{'pause':>7s}{'speech':>8s}"
+      f"{'PESQ':>7s}{'STOI':>7s}{'ESTOI':>7s}"
+      f"{'CSIG':>7s}{'CBAK':>7s}{'COVL':>7s}{'SSNR':>7s}")
           f"{'PESQ':>7s}{'STOI':>7s}{'ESTOI':>7s}")
     for name, r in rows.items():
         e = energy[name]
