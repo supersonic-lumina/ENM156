@@ -308,7 +308,7 @@ What it **does not** mean:
 
 ## Further reading
 
-- Neftci, Mostafa & Zenke (2019). *Surrogate Gradient Learning in Spiking Neural Networks.* IEEE Signal Processing Magazine.
-- Eshraghian et al. (2023). *Training Spiking Neural Networks Using Lessons From Deep Learning.* Proceedings of the IEEE. (snnTorch)
-- Timcheck et al. (2023). *The Intel Neuromorphic DNS Challenge.* Neuromorphic Computing and Engineering.
-- Horowitz (2014). *Computing's Energy Problem (and what we can do about it).* ISSCC. (energy per operation)
+- Neftci, Mostafa & Zenke (2019). *[Surrogate Gradient Learning in Spiking Neural Networks.](https://ieeexplore.ieee.org/document/8891809)* IEEE Signal Processing Magazine.
+- Eshraghian et al. (2023). *[Training Spiking Neural Networks Using Lessons From Deep Learning.](https://ieeexplore.ieee.org/document/10242251)* Proceedings of the IEEE. (snnTorch)
+- Timcheck et al. (2023). *[The Intel Neuromorphic DNS Challenge.](https://iopscience.iop.org/article/10.1088/2634-4386/ace737)* Neuromorphic Computing and Engineering.
+- Horowitz (2014). *[Computing's Energy Problem (and what we can do about it).](https://ieeexplore.ieee.org/document/6757323)* ISSCC. (energy per operation)
