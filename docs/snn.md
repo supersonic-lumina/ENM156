@@ -266,8 +266,8 @@ What it **does not** mean:
   or a lower `surrogate_slope`.
 - **Saturated neurons.** Neurons that spike in every step carry no information and
   save no energy. A small `snn.rate_weight` pushes the rate down.
-- **Leftover state.** Membrane potentials from one clip must not leak into the
-  next. The code starts every clip from rest; keep it that way if you change it.
+- **Leftover state.** Membrane potentials from one audio clip must not leak into the
+  next. The code starts every clip from rest; keep it that way if you change the code.
 - **Memory during training.** BPTT keeps every time step, so long crops,
   big layers or a high `steps_per_frame` quickly fill up the VRAM.
 
