@@ -214,7 +214,7 @@ test clips.
   layers.
 - A ***synop*** (synaptic operation) is a spike arriving at a weight. Because the
   spike is 1, the weight is just added: no multiplication. Synops only happen
-  when a neuron spikes, which is where the savings come from.
+  when a neuron spikes, which is where the energy savings come from.
 
 For the SNN, per frame:
 
