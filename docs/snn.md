@@ -143,7 +143,7 @@ Train the SNN with `train_pesq.py` (see the README):
 ### Input: a frame becomes current
 
 The first layer is not fed by spikes. The noisy input frame (the same features
-the other models get, see `denoiser/pipeline.py`) goes through an ordinary
+the other models get, see [`denoiser/pipeline.py`](denoiser/pipeline.py)) goes through an ordinary
 linear layer, and its output is used directly as the input current of the first
 LIF layer. This is called *direct coding*: there is no conversion of the audio
 into spikes first.
