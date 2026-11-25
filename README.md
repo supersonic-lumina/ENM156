@@ -112,6 +112,8 @@ Alternatively, you can specify parent directories to include all runs within the
 .venv/bin/python plot_runs.py runs/default runs/experimental
 ```
 
+To save the plot as an image, use the --output option.
+
 ### Making training data
 
 ```bash
