@@ -61,6 +61,16 @@ init_gain = 1.0 # scales the starting weights of the layers fed by spikes; 1 lea
 spiking = true # false: smooth neurons instead of spikes; not a spiking network, only a control for what spikes cost in quality
 rate_weight = 0.0 # train_pesq.py: loss weight on the mean spikes per neuron per step, for fewer spikes; 0 = off
 
+[energy]
+# evaluate.py's cost estimate (denoiser/snn/stats.py): pJ per operation of each type. The defaults are the
+# usual 45 nm figures (Horowitz 2014, 32-bit float), a convention for comparing networks, not a measurement;
+# change them to see how another assumption shifts the comparison. Every model type is counted the same way.
+mac = 4.6 # one multiply-accumulate of the network (a weight times a value, added up)
+synop = 0.9 # one spike arriving at a weight: an addition only
+neuron_update = 4.6 # one spiking neuron (or readout neuron) per time step: its leak and incoming current
+fft_mac = 4.6 # one multiply-add around the network: STFT, window, features, applying the output, inverse STFT
+memory_bit = 0.0 # one bit of a weight read from memory (32-bit weights); 0 = memory left out
+
 [train]
 epochs = 10
 lr = 1e-3

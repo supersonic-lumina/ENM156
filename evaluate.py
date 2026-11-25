@@ -9,7 +9,11 @@ next to the baseline.
   .venv/bin/python evaluate.py --model runs/default/model.pt --num-clips 100
 
 With --model, the clean and noisy scores don't depend on the model, so they
-are cached per clip in runs/eval_cache.json and only computed once.
+are cached per clip in runs/eval_cache.json and only computed once. It also
+prints the estimated cost of running the model live (denoiser/snn/stats.py):
+the network on its own (the number older logs show), the STFT and features
+around it, any registered cost terms, and the total; the pJ per operation
+are set in [energy].
 
 The scores are computed in worker processes (--workers, default: one per CPU
 core, at most MAX_WORKERS), so with --model they run while the model works on
@@ -34,7 +38,7 @@ from denoiser.data import load_pairs, split_files
 from denoiser.metrics import composite
 from denoiser.model import describe_model, load_checkpoint
 from denoiser.pipeline import denoise
-from denoiser.snn.stats import CostMeter, describe_cost
+from denoiser.snn.stats import CostMeter, cost_lines
 
 SAMPLE_RATE = 16000
 CACHE_PATH = "runs/eval_cache.json"
@@ -264,7 +268,10 @@ def main() -> None:
                                         args.workers)
         if len(fixed) > len(cached):
             save_cache(key, fixed, cache)
-        print(f"  cost: {describe_cost(meter.cost(), model_cfg)}")
+        lines = cost_lines(meter.cost(model_cfg), model_cfg)
+        width = max(len(label) for label, _ in lines)
+        for label, text in lines:
+            print(f"  cost, {label + ':':{width + 1}s} {text}")
     else:
         samples_dir = args.samples_dir or resolve_path(cfg["train"]["output_dir"]) / "samples"
         print(f"Evaluating samples in {samples_dir}...")

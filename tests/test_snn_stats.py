@@ -47,13 +47,15 @@ def main():
         spikes = meter.spikes
         checks[f"{steps} step(s): frames"] = meter.frames == frames
         checks[f"{steps} step(s): network spikes"] = spikes[0] > 0 and spikes[1] > 0
-        # by hand: input layer 10*8 MACs once per frame, a leak multiply per neuron (8 + 6 + 4) per step
-        checks[f"{steps} step(s): MACs"] = cost["macs"] == 10 * 8 + steps * 18
+        # by hand: input layer 10*8 MACs once per frame, an update per neuron (8 + 6 + 4) per step
+        checks[f"{steps} step(s): MACs"] = cost["macs"] == 10 * 8
+        checks[f"{steps} step(s): neuron updates"] = cost["neuron_updates"] == steps * 18
         synops = (spikes[0] * 6 + spikes[1] * 4) / frames
         checks[f"{steps} step(s): synops"] = close(cost["synops"], synops)
         checks[f"{steps} step(s): rates"] = (close(cost["rates"][0], spikes[0] / (frames * steps * 8))
                                              and close(cost["rates"][1], spikes[1] / (frames * steps * 6)))
-        checks[f"{steps} step(s): energy"] = close(cost["pj"], cost["macs"] * PJ_PER_MAC + synops * PJ_PER_SYNOP)
+        # the same energy as when neuron updates were counted as MACs
+        checks[f"{steps} step(s): energy"] = close(cost["pj"], (10 * 8 + steps * 18) * PJ_PER_MAC + synops * PJ_PER_SYNOP)
         # the rate the loss sees is the mean over all neurons of the last pass
         total = sum(net.stats["spikes"]) / (net.stats["frames"] * steps * 14)
         checks[f"{steps} step(s): spike_rate"] = close(net.spike_rate.item(), total)
@@ -68,7 +70,7 @@ def main():
         checks["pruned inputs are ignored"] = torch.equal(net(x), net(changed))
         meter = CostMeter(net)
         meter.add()
-    checks["pruned MACs"] = meter.cost()["macs"] == 5 * 8 + 18
+    checks["pruned MACs"] = meter.cost()["macs"] == 5 * 8
     net(x).sum().backward()
     checks["pruned weights get no gradient"] = not net.inputs[0].weight.grad[:, :5].any()
     fresh = LIFNet(10, 4, hidden=(8, 6))

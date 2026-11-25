@@ -96,6 +96,28 @@ folder are left out of it as comments, so someone else's file keeps your own pat
 .venv/bin/python compare_oracles.py --filterbank runs/filterbank/filterbank.pt
 ```
 
+With `--model`, `evaluate.py` also estimates what the denoiser would cost to
+run live, from operation counts per frame (`denoiser/snn/stats.py`), for every
+model type:
+
+```
+  cost, network:         6.7 M MACs/s + 0.17 M neuron updates/s + 0.57 M synops/s (spikes per neuron per step: ...); about 32 uW
+  cost, STFT & features: 3.85 M ops/s (analysis 3.10, features 0.48, output 0.03, synthesis 0.25); about 18 uW
+  cost, total:           about 50 uW (...)
+```
+
+`network` is the model alone, the number older logs show. `STFT & features`
+is everything around it: the STFT (window and real FFT, also of the long
+window), the model's input features, applying its output to the noisy
+spectrum, and the inverse STFT with overlap-add; a real FFT of N points is
+counted as N·log2(N) multiply-adds. The pJ per operation type (MAC, synaptic
+operation, neuron update, FFT multiply-add, memory bit) are set in `[energy]`
+in config.toml. Their defaults are the usual 45 nm figures (Horowitz 2014):
+a convention for comparing networks with each other, not a measurement.
+Other code can add its own cost terms with
+`denoiser.snn.stats.register_cost_term(name, fn)`; they are printed and
+added to the total the same way.
+
 ### Making training data
 
 ```bash
@@ -120,6 +142,7 @@ Or one at a time:
 .venv/bin/python tests/test_snn_neurons.py    # spiking neurons on hand-made inputs
 .venv/bin/python tests/test_snn_stream.py     # spiking network: live == offline == frame by frame
 .venv/bin/python tests/test_snn_stats.py      # operation counts against counts by hand
+.venv/bin/python tests/test_cost.py           # whole-pipeline cost, [energy], registered cost terms
 .venv/bin/python tests/test_config.py         # --config / --set order, a run's config.toml
 ```
 
@@ -155,7 +178,7 @@ types out, and validate on VCTK speakers that VoiceBank doesn't use (`[mix]`).
 | `denoiser/nets.py` | the networks (MLP, TCN) |
 | `denoiser/snn/neurons.py` | spiking neurons (leaky integrate-and-fire, leaky readout) |
 | `denoiser/snn/nets.py` | the spiking networks; settings in `[snn]` |
-| `denoiser/snn/stats.py` | operations per frame and the energy estimate `evaluate.py` prints |
+| `denoiser/snn/stats.py` | operations per frame of the network and the STFT around it, and the energy estimate `evaluate.py` prints (all model types; pJ per operation in `[energy]`) |
 | `denoiser/model.py` | building the configured network, checkpoints |
 | `denoiser/filterbank.py` | learned encoder/decoder that can replace the STFT (not used by the denoiser yet) |
 | `denoiser/stream.py` | live, chunk-by-chunk denoising |
