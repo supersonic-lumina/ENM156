@@ -1,10 +1,14 @@
 # Speech denoiser
 
+[![tests](https://github.com/supersonic-lumina/ENM156/actions/workflows/tests.yml/badge.svg)](https://github.com/supersonic-lumina/ENM156/actions/workflows/tests.yml)
+
 A small causal network that removes noise from speech, trained on
 VoiceBank-DEMAND-16k: a frame-by-frame MLP, a TCN that also looks at
 the past half second, or a spiking network (SNN) that remembers the past in
 its neurons (`model.type`). Frames are causal by default, so the same model can
 run live (`denoiser/stream.py`) with a latency of one short window.
+How the spiking network works, and what each `[snn]` setting does, is
+explained in [docs/snn.md](docs/snn.md).
 
 ## Contents
  
@@ -88,7 +92,7 @@ folder are left out of it as comments, so someone else's file keeps your own pat
 ### Evaluation
 
 ```bash
-.venv/bin/python evaluate.py --model runs/default/model.pt  # PESQ / STOI on test clips
+.venv/bin/python evaluate.py --model runs/default/model.pt  # PESQ, STOI, CSIG/CBAK/COVL, SSNR on test clips
 .venv/bin/python compare_oracles.py --filterbank runs/filterbank/filterbank.pt
 ```
 
@@ -122,10 +126,11 @@ added to the total the same way.
 
 ### Tests
 
-The tests don't need the dataset. Run them all with:
+The tests don't need the dataset, and run on every pull request (see the badge above). Run them all with
+(stops at, and exits non-zero on, the first failure):
 
 ```bash
-for t in tests/test_*.py; do echo "== $t"; .venv/bin/python "$t" || break; done
+(for t in tests/test_*.py; do echo "== $t"; .venv/bin/python "$t" || exit 1; done)
 ```
 
 Or one at a time:
