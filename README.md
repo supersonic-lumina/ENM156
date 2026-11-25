@@ -15,6 +15,7 @@ run live (`denoiser/stream.py`) with a latency of one short window.
   - [Training](#training)
   - [Settings files](#settings-files)
   - [Evaluation](#evaluation)
+  - [Plotting](#plotting)
   - [Making training data](#making-training-data)
   - [Tests](#tests)
 - [Checkpoints and data](#checkpoints-and-data)
@@ -93,6 +94,25 @@ folder are left out of it as comments, so someone else's file keeps your own pat
 .venv/bin/python evaluate.py --model runs/default/model.pt  # PESQ / STOI on test clips
 .venv/bin/python compare_oracles.py --filterbank runs/filterbank/filterbank.pt
 ```
+
+### Plotting
+
+Training progress can be visualized and compared across multiple runs using the plotting script.
+It reads the training logs from each run directory and plots the training metrics.
+
+You can specify individual run directories:
+
+```bash
+.venv/bin/python plot_runs.py runs/default/model1 runs/default/model2
+```
+
+Alternatively, you can specify parent directories to include all runs within them:
+
+```bash
+.venv/bin/python plot_runs.py runs/default runs/experimental
+```
+
+To save the plot as an image, use the --output option.
 
 ### Making training data
 
