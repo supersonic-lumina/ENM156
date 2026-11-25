@@ -1,7 +1,9 @@
 """
-STOI / PESQ evaluation for the MLP speech denoiser. Scores the noisy input
-and the denoised output against the clean reference, so the improvement
-the model brings is visible next to the baseline.
+Quality of the speech denoiser: PESQ, STOI and ESTOI, and the composite
+measures VoiceBank-DEMAND papers report (CSIG, CBAK, COVL and segmental SNR,
+see denoiser/metrics.py). Scores the noisy input and the denoised output
+against the clean reference, so the improvement the model brings is visible
+next to the baseline.
 
   .venv/bin/python evaluate.py                       # score <train.output_dir>/samples/*/
   .venv/bin/python evaluate.py --model runs/default/model.pt --num-clips 100
@@ -29,6 +31,7 @@ from pystoi import stoi
 
 from denoiser.config import add_config_args, get_device, load_config, resolve_path
 from denoiser.data import load_pairs, split_files
+from denoiser.metrics import composite
 from denoiser.model import describe_model, load_checkpoint
 from denoiser.pipeline import denoise
 from denoiser.snn.stats import CostMeter, describe_cost
@@ -57,11 +60,17 @@ def compute_pesq(clean: Wave, est: Wave, sr: int = SAMPLE_RATE, mode: str = "wb"
         return math.nan
 
 
+METRICS = ("pesq", "stoi", "estoi", "csig", "cbak", "covl", "ssnr")
+
+
 def score_pair(clean: Wave, est: Wave, sr: int = SAMPLE_RATE) -> Scores:
+    """Every measure in METRICS, of `est` against the reference `clean`."""
+    pesq_wb = compute_pesq(clean, est, sr)
     return {
-        "pesq": compute_pesq(clean, est, sr),
+        "pesq": pesq_wb,
         "stoi": compute_stoi(clean, est, sr),
         "estoi": compute_stoi(clean, est, sr, extended=True),
+        **composite(clean, est, pesq_wb, sr),
     }
 
 
@@ -196,8 +205,8 @@ def evaluate_model(
 
 
 def cache_key(files: Sequence[Path], sample_rate: int) -> list:
-    """Changes when the test files do, so a stale cache isn't used."""
-    return [sample_rate] + [[f.name, f.stat().st_size, f.stat().st_mtime_ns] for f in files]
+    """Changes when the test files or the measures do, so a stale cache isn't used."""
+    return [sample_rate, list(METRICS)] + [[f.name, f.stat().st_size, f.stat().st_mtime_ns] for f in files]
 
 
 def load_cache(key: list, cache_path: str = CACHE_PATH) -> list[dict[str, Scores]]:
@@ -215,9 +224,9 @@ def save_cache(key: list, clips: list[dict[str, Scores]], cache_path: str = CACH
 
 
 def print_results(results: dict[str, Scores]) -> None:
-    print(f"{'':14s}{'PESQ':>8s}{'STOI':>8s}{'ESTOI':>8s}")
+    print(f"{'':14s}" + "".join(f"{m.upper():>8s}" for m in METRICS))
     for kind, m in results.items():
-        print(f"{kind:14s}{m['pesq']:8.3f}{m['stoi']:8.3f}{m['estoi']:8.3f}")
+        print(f"{kind:14s}" + "".join(f"{m[name]:8.3f}" for name in METRICS))
 
 
 def main() -> None:

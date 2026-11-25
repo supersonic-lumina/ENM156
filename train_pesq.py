@@ -18,7 +18,7 @@ import random
 import torch
 
 from denoiser.config import (add_config_args, describe_device, get_device, load_config,
-                             log_output, print_config, resolve_path)
+                             log_output, print_config, resolve_path, save_run_config)
 from denoiser.data import (load_crops, load_pairs, random_crops, sample_ladder, split_files,
                            swap_in_clean)
 from denoiser.model import CheckpointSaver, LrSchedule, describe_model, initial_model, save_checkpoint
@@ -109,6 +109,7 @@ def main():
     rate_weight = cfg["snn"]["rate_weight"]
     model, cfg = initial_model(cfg, device, cfg["pesq"]["init_from"])
     cfg["snn"]["rate_weight"] = rate_weight  # a setting of the loss, not of the checkpoint's model
+    save_run_config(cfg, out_dir / "config.toml")  # after initial_model: with init_from, its model settings
     print_config(cfg, ("stft", "model", *(("snn",) if cfg["model"]["type"] == "snn" else ()), "train", "pesq"))
     print(describe_model(cfg))
 

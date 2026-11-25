@@ -19,7 +19,7 @@ import random
 import torch
 
 from denoiser.config import (add_config_args, describe_device, get_device, load_config,
-                             log_output, print_config, resolve_path)
+                             log_output, print_config, resolve_path, save_run_config)
 from denoiser.data import first_crops, load_crops, random_crops, split_files
 from denoiser.filterbank import (describe_filterbank, make_filterbank, save_filterbank, snr,
                                  stft_oracle)
@@ -59,6 +59,7 @@ def main():
     out_dir = resolve_path(fb["output_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
     log_output(out_dir / "log.txt")
+    save_run_config(cfg, out_dir / "config.toml")
 
     device = get_device(cfg)
     print(f"Using device: {describe_device(device)}")
