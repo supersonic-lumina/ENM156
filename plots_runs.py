@@ -53,7 +53,7 @@ def plot_runs(runs, output=None):
         for metrics in epochs.values():
             all_metrics.update(metrics.keys())
 
-    # Order the panels in following sequence: train loss, learning rate, validation metrics, remaining metrics
+    # Order the panels: train loss, learning rate, validation metrics, remaining metrics.
     ordered_metrics = []
 
     if "train_loss" in all_metrics:
@@ -108,13 +108,25 @@ def plot_runs(runs, output=None):
         ax.set_xlabel("epoch")
         ax.set_ylabel(metric)
         ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=8)
 
     # Hide unused subplots if the number of metrics is odd.
     for ax in axes[len(ordered_metrics):]:
         ax.set_visible(False)
 
+    # Create one shared legend for all subplots.
+    handles, labels = axes[0].get_legend_handles_labels()
+
+    fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.0),
+        ncol=min(len(labels), 4),
+        fontsize=8
+    )
+
     fig.tight_layout(pad=2.0, h_pad=3.0, w_pad=3.0)
+    fig.subplots_adjust(top=0.90)
 
     if output:
         output = Path(output)
@@ -130,6 +142,7 @@ def plot_runs(runs, output=None):
 def load_runs(paths):
     """Load logs from individual run directories or parent directories."""
     runs = {}
+    loaded_dirs = set()
 
     for path in paths:
         path = Path(path)
@@ -142,14 +155,21 @@ def load_runs(paths):
         if (path / "log.txt").is_file():
             run_dirs = [path]
         else:
-            # Otherwise, treat it as a parent directory containing runs.
+            # Otherwise, search recursively for training runs.
             run_dirs = [
-                directory
-                for directory in path.iterdir()
-                if directory.is_dir() and (directory / "log.txt").is_file()
+                log.parent
+                for log in path.rglob("log.txt")
             ]
 
         for run_dir in sorted(run_dirs):
+            # Avoid loading the same run more than once.
+            run_dir = run_dir.resolve()
+
+            if run_dir in loaded_dirs:
+                continue
+
+            loaded_dirs.add(run_dir)
+
             log_path = run_dir / "log.txt"
             epochs = parse_log(log_path)
 
@@ -157,7 +177,14 @@ def load_runs(paths):
                 print(f"Warning: No epoch data found in {log_path}")
                 continue
 
-            runs[run_dir.name] = epochs
+            # Use the path relative to the current working directory as label.
+            # try:
+            #     name = run_dir.relative_to(Path.cwd()).as_posix()
+            # except ValueError:
+            #     name = run_dir.as_posix()
+            name = run_dir.name
+
+            runs[name] = epochs
             print(f"Loaded {len(epochs)} epochs from {log_path}")
 
     return runs
