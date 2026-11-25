@@ -92,21 +92,17 @@ def main():
                                  noise[speech].sum().item(), error[speech].sum().item()]
 
     print(f"{'':42s}{'SNR':>7s}{'SI-SDR':>8s}{'pause':>7s}{'speech':>8s}"
-      f"{'PESQ':>7s}{'STOI':>7s}{'ESTOI':>7s}"
-      f"{'CSIG':>7s}{'CBAK':>7s}{'COVL':>7s}{'SSNR':>7s}")
-          f"{'PESQ':>7s}{'STOI':>7s}{'ESTOI':>7s}")
+          f"{'PESQ':>7s}{'STOI':>7s}{'ESTOI':>7s}"
+          f"{'CSIG':>7s}{'CBAK':>7s}{'COVL':>7s}{'SSNR':>7s}")
     for name, r in rows.items():
         e = energy[name]
         pause, speech = (10 * np.log10(e[0] / max(e[1], 1e-12)),
                          10 * np.log10(e[2] / max(e[3], 1e-12)))
         print(f"{name:42s}{np.mean(r['snr']):7.2f}{np.mean(r['si_sdr']):8.2f}{pause:7.1f}"
-      f"{speech:8.1f}{np.nanmean(r['pesq']):7.3f}{np.mean(r['stoi']):7.3f}"
-      f"{np.mean(r['estoi']):7.3f}{np.nanmean(r['csig']):7.3f}"
-      f"{np.nanmean(r['cbak']):7.3f}{np.nanmean(r['covl']):7.3f}"
-      f"{np.mean(r['ssnr']):7.3f}")
-
               f"{speech:8.1f}{np.nanmean(r['pesq']):7.3f}{np.mean(r['stoi']):7.3f}"
-              f"{np.mean(r['estoi']):7.3f}")
+              f"{np.mean(r['estoi']):7.3f}{np.nanmean(r['csig']):7.3f}"
+              f"{np.nanmean(r['cbak']):7.3f}{np.nanmean(r['covl']):7.3f}"
+              f"{np.mean(r['ssnr']):7.3f}")
 
 
 if __name__ == "__main__":
