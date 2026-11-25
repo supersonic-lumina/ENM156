@@ -18,6 +18,7 @@ import json
 import math
 import multiprocessing
 import os
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import Future, ProcessPoolExecutor
 from pathlib import Path
 
@@ -36,14 +37,17 @@ SAMPLE_RATE = 16000
 CACHE_PATH = "runs/eval_cache.json"
 MAX_WORKERS = 8  # default limit: on Windows every worker loads its own copy of PyTorch
 
+Wave = np.ndarray
+Scores = dict[str, float]  # metric -> score
 
-def compute_stoi(clean, est, sr=SAMPLE_RATE, extended=False):
+
+def compute_stoi(clean: Wave, est: Wave, sr: int = SAMPLE_RATE, extended: bool = False) -> float:
     """STOI (0..1, higher is better). extended=True gives ESTOI."""
     length = min(len(clean), len(est))
     return float(stoi(clean[:length], est[:length], sr, extended=extended))
 
 
-def compute_pesq(clean, est, sr=SAMPLE_RATE, mode="wb"):
+def compute_pesq(clean: Wave, est: Wave, sr: int = SAMPLE_RATE, mode: str = "wb") -> float:
     """PESQ (-0.5..4.5, higher is better). 'wb' needs 16 kHz, 'nb' 8 or 16 kHz.
     Returns nan when PESQ can't score the clip (e.g. no speech detected)."""
     length = min(len(clean), len(est))
@@ -53,7 +57,7 @@ def compute_pesq(clean, est, sr=SAMPLE_RATE, mode="wb"):
         return math.nan
 
 
-def score_pair(clean, est, sr=SAMPLE_RATE):
+def score_pair(clean: Wave, est: Wave, sr: int = SAMPLE_RATE) -> Scores:
     return {
         "pesq": compute_pesq(clean, est, sr),
         "stoi": compute_stoi(clean, est, sr),
@@ -61,31 +65,52 @@ def score_pair(clean, est, sr=SAMPLE_RATE):
     }
 
 
-def scorer(workers=None):
+def scorer(workers: int | None = None) -> ProcessPoolExecutor:
     """A pool of `workers` processes for score_pair (None: one per CPU core, at
-    most MAX_WORKERS). The workers are started fresh ("forkserver" where it
-    exists, else "spawn"), never forked from this process, which may have
-    started the GPU and PyTorch's threads."""
+    most MAX_WORKERS). The workers are started fresh, never forked from this
+    process, which may have started the GPU and PyTorch's threads."""
     methods = multiprocessing.get_all_start_methods()
-    context = multiprocessing.get_context("forkserver" if "forkserver" in methods else "spawn")
-    return ProcessPoolExecutor(workers or min(os.cpu_count() or 1, MAX_WORKERS), mp_context=context)
+    method = next((m for m in ("forkserver", "spawn") if m in methods), None)
+    if method is None:
+        raise RuntimeError(f"Need the 'forkserver' or 'spawn' start method, this system has {methods}")
+    max_workers = (
+        min(os.cpu_count() or 1, MAX_WORKERS)
+        if workers is None
+        else workers
+    )
+    return ProcessPoolExecutor(max_workers, mp_context=multiprocessing.get_context(method))
 
 
-def resolved(rows):
-    """[{name: score dict or Future of one}] -> [{name: score dict}]"""
-    return [{name: s.result() if isinstance(s, Future) else s for name, s in row.items()} for row in rows]
+def resolved(rows: list[dict[str, Scores | Future]]) -> list[dict[str, Scores]]:
+    """[{name: scores or Future of them}] -> [{name: scores}]"""
+    return [
+        {
+            name: value.result() if isinstance(value, Future) else value
+            for name, value in row.items()
+        }
+        for row in rows
+    ]
 
 
-def evaluate_estimates(items, sr=SAMPLE_RATE, workers=None):
-    """items: iterable of (clean, {name: estimate}) float waveforms.
+def evaluate_estimates(
+    items: Iterable[tuple[Wave, dict[str, Wave]]],
+    sr: int = SAMPLE_RATE,
+    workers: int | None = None,
+) -> dict[str, Scores]:
+    """items: (clean, {name: estimate}) per clip.
     Returns {name: {metric: mean}} in the order the names first appear."""
     with scorer(workers) as pool:
-        rows = [{name: pool.submit(score_pair, clean, est, sr) for name, est in estimates.items()}
-                for clean, estimates in items]
+        rows = [
+            {
+                name: pool.submit(score_pair, clean, est, sr)
+                for name, est in estimates.items()
+            }
+            for clean, estimates in items
+        ]
         return mean_scores(by_name(resolved(rows)))
 
 
-def by_name(rows):
+def by_name(rows: list[dict[str, Scores]]) -> dict[str, list[Scores]]:
     """[{name: scores}] per clip -> {name: [scores of each clip]}"""
     scores = {}
     for row in rows:
@@ -94,7 +119,7 @@ def by_name(rows):
     return scores
 
 
-def mean_scores(scores):
+def mean_scores(scores: dict[str, list[Scores]]) -> dict[str, Scores]:
     """{name: [per-clip scores]} -> {name: {metric: mean}}"""
     return {
         name: {m: float(np.nanmean([r[m] for r in rows])) for m in rows[0]}
@@ -102,15 +127,28 @@ def mean_scores(scores):
     }
 
 
-def evaluate_triples(triples, sr=SAMPLE_RATE, workers=None):
-    """triples: iterable of (clean, noisy, denoised) float waveforms.
+def evaluate_triples(
+    triples: Iterable[tuple[Wave, Wave, Wave]],
+    sr: int = SAMPLE_RATE,
+    workers: int | None = None,
+) -> dict[str, Scores]:
+    """triples: (clean, noisy, denoised) per clip.
     "clean" scores the reference against itself: the metric ceiling."""
     return evaluate_estimates(
-        ((clean, {"clean": clean, "noisy": noisy, "denoised": denoised})
-         for clean, noisy, denoised in triples), sr, workers)
+        (
+            (clean, {
+                "clean": clean,
+                "noisy": noisy,
+                "denoised": denoised,
+            })
+            for clean, noisy, denoised in triples
+        ),
+        sr,
+        workers,
+    )
 
 
-def load_samples_dir(samples_dir):
+def load_samples_dir(samples_dir: str | Path) -> Iterator[tuple[Wave, Wave, Wave]]:
     """Yield (clean, noisy, denoised) from the folders save_samples writes."""
     for d in sorted(p for p in Path(samples_dir).iterdir() if p.is_dir()):
         clean, _ = sf.read(str(d / "clean.wav"), dtype="float32")
@@ -119,7 +157,13 @@ def load_samples_dir(samples_dir):
         yield clean, noisy, denoised
 
 
-def evaluate_model(denoise_fn, pairs, cached=(), after_noisy=lambda: None, workers=None):
+def evaluate_model(
+    denoise_fn: Callable[[Wave], Wave],
+    pairs: Iterable[tuple[Wave, Wave]],
+    cached: Sequence[dict[str, Scores]] = (),
+    after_noisy: Callable[[], None] = lambda: None,
+    workers: int | None = None,
+) -> tuple[dict[str, Scores], list[dict[str, Scores]]]:
     """Also runs the clean clip through the model ("clean->model"), which
     shows how much the model distorts speech that has no noise to remove.
     cached: per-clip {"clean", "noisy"} scores from an earlier run, used for
@@ -128,24 +172,35 @@ def evaluate_model(denoise_fn, pairs, cached=(), after_noisy=lambda: None, worke
     rows = []
     with scorer(workers) as pool:
         for i, (noisy, clean) in enumerate(pairs):
-            row = dict(cached[i]) if i < len(cached) else {
-                "clean": pool.submit(score_pair, clean, clean), "noisy": pool.submit(score_pair, clean, noisy)}
+            if i < len(cached):
+                row = dict(cached[i])
+            else:
+                row = {
+                    "clean": pool.submit(score_pair, clean, clean),
+                    "noisy": pool.submit(score_pair, clean, noisy),
+                }
             denoised = denoise_fn(noisy)
             after_noisy()
             row["denoised"] = pool.submit(score_pair, clean, denoised)
             row["clean->model"] = pool.submit(score_pair, clean, denoise_fn(clean))
             rows.append(row)
-        rows = resolved(rows)
-    fixed = [{"clean": row["clean"], "noisy": row["noisy"]} for row in rows]
-    return mean_scores(by_name(rows)), fixed
+        resolved_rows = resolved(rows)
+    fixed = [
+        {
+            "clean": row["clean"],
+            "noisy": row["noisy"],
+        }
+        for row in resolved_rows
+    ]
+    return mean_scores(by_name(resolved_rows)), fixed
 
 
-def cache_key(files, sample_rate):
+def cache_key(files: Sequence[Path], sample_rate: int) -> list:
     """Changes when the test files do, so a stale cache isn't used."""
     return [sample_rate] + [[f.name, f.stat().st_size, f.stat().st_mtime_ns] for f in files]
 
 
-def load_cache(key, cache_path=CACHE_PATH):
+def load_cache(key: list, cache_path: str = CACHE_PATH) -> list[dict[str, Scores]]:
     try:
         data = json.loads(resolve_path(cache_path).read_text())
     except (OSError, ValueError):
@@ -153,19 +208,19 @@ def load_cache(key, cache_path=CACHE_PATH):
     return data["clips"] if data.get("key") == key else []
 
 
-def save_cache(key, clips, cache_path=CACHE_PATH):
+def save_cache(key: list, clips: list[dict[str, Scores]], cache_path: str = CACHE_PATH) -> None:
     path = resolve_path(cache_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"key": key, "clips": clips}))
 
 
-def print_results(results):
+def print_results(results: dict[str, Scores]) -> None:
     print(f"{'':14s}{'PESQ':>8s}{'STOI':>8s}{'ESTOI':>8s}")
     for kind, m in results.items():
         print(f"{kind:14s}{m['pesq']:8.3f}{m['stoi']:8.3f}{m['estoi']:8.3f}")
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--samples-dir", default=None,
