@@ -70,6 +70,7 @@ All commands are run from the repository root. `.venv/bin/python` is the Python 
 .venv/bin/python train_pesq.py --set train.output_dir=runs/pesq
 .venv/bin/python train_pesq.py --set pesq.init_from=runs/default/model.pt --set train.lr=1e-4 --set train.output_dir=runs/default_pesq
 .venv/bin/python train_pesq.py --set model.type=snn --set pesq.init_from= --set train.output_dir=runs/snn   # spiking network
+.venv/bin/python train_pesq.py --set pesq.pesq_weight=0 --set pesq.stoi_weight=0 --set train.output_dir=runs/mse   # MSE only
 .venv/bin/python train_filterbank.py                        # learned encoder/decoder (step 1)
 ```
 
