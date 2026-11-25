@@ -1,7 +1,8 @@
 """
 Trains the same denoiser as train.py, but with a PESQ loss on whole clips
 instead of MSE on frames; optionally mixed with train.py's MSE and a STOI
-loss (pesq.mse_weight, pesq.stoi_weight; see config.toml). Each batch is a
+loss (pesq.mse_weight, pesq.stoi_weight; see config.toml). With
+pesq.pesq_weight = 0 it trains without the PESQ loss, e.g. MSE only. Each batch is a
 piece of pesq.crop_seconds from a random start in each of a few clips;
 clips shorter than that are left out, so every batch has the same shape.
 The model runs on every frame, the output is turned back into audio and
@@ -44,14 +45,15 @@ def loss_to_mos(loss, factor):
 
 
 class CombinedLoss:
-    """PESQ loss, plus the MSE and STOI terms when their weight in [pesq] is
-    above 0. Each term is divided by its typical size (the *_scale settings),
+    """PESQ, MSE and STOI terms, each when its weight in [pesq] is above 0. Each term is divided by its typical size (the *_scale settings),
     so the weights say how much a term counts next to the PESQ loss (~1).
     Returns the total and, for printing, the estimated PESQ, the MSE and the
     STOI (higher PESQ and STOI are better, lower MSE)."""
 
     def __init__(self, cfg, device, sample_rate):
         self.cfg, self.p = cfg, cfg["pesq"]
+        if not (self.p["pesq_weight"] or self.p["mse_weight"] or self.p["stoi_weight"]):
+            raise SystemExit("pesq.pesq_weight, pesq.mse_weight and pesq.stoi_weight are all 0: nothing to train on")
         self.pesq = make_pesq_loss(device, sample_rate)
         if self.p["mse_weight"] and filterbank(cfg) is not None:
             raise SystemExit("pesq.mse_weight must be 0 with model.filterbank: the MSE term is on STFT frames")
@@ -62,8 +64,13 @@ class CombinedLoss:
 
     def __call__(self, model, noisy, clean):
         est, pred, x = run_model(model, noisy, self.cfg)
-        pesq_loss = self.pesq(clean, est)  # per clip
-        total = pesq_loss.mean()
+        if self.p["pesq_weight"]:
+            pesq_loss = self.pesq(clean, est)  # per clip
+            total = self.p["pesq_weight"] * pesq_loss.mean()
+        else:  # not trained on, still estimated for the log
+            with torch.no_grad():
+                pesq_loss = self.pesq(clean, est)
+            total = est.new_zeros(())
         terms = {"pesq": loss_to_mos(pesq_loss.detach(), self.pesq.factor).mean()}
         if self.p["mse_weight"]:
             stft = self.cfg["stft"]

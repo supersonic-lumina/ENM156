@@ -130,10 +130,11 @@ crossfade = 0.05 # seconds; voicebank recipe: crossfade between joined noise pie
 seed = 0
 
 [pesq]
-# train_pesq.py: loss = PESQ loss + mse_weight * MSE / mse_scale + stoi_weight * (1 - STOI) / stoi_scale
+# train_pesq.py: loss = pesq_weight * PESQ loss + mse_weight * MSE / mse_scale + stoi_weight * (1 - STOI) / stoi_scale
 # The scales are typical values of each term, so a weight of 1 makes that term count about as much
 # as the PESQ loss (~1). MSE is train.py's frame loss and keeps the spectrum close to the clean one;
 # STOI keeps speech intelligible. PESQ alone tends to remove noise at the cost of a thin, tinny sound.
+pesq_weight = 1 # 0: no PESQ loss (it is still estimated for the log); with mse_weight = 1 and stoi_weight = 0, MSE-only training
 mse_weight = 1 # 1 or 0 is on or off
 mse_scale = 0.003
 stoi_weight = 1 # 1 or 0 is on or off
