@@ -97,7 +97,9 @@ is carried from frame to frame instead (`denoiser/stream.py`).
 `snn.spiking = false` replaces the LIF neurons with *smooth* neurons (`Smooth`):
 the same leaky potential, but the output is a value between 0 and 1 (a sigmoid
 around the threshold) and nothing is reset. That is **not** a spiking network.
-It is a control experiment that shows how much quality the spikes themselves cost.
+This was mainly used as a control experiment to debug the SNN code but it can
+also be used to show how much quality the spikes themselves cost, or to debug
+future changes to the neuron model.
 
 ## Training through spikes: the surrogate gradient
 
