@@ -119,6 +119,8 @@ Or one at a time:
 .venv/bin/python tests/test_snn_stream.py     # spiking network: live == offline == frame by frame
 .venv/bin/python tests/test_snn_stats.py      # operation counts against counts by hand
 .venv/bin/python tests/test_config.py         # --config / --set order, a run's config.toml
+.venv/bin/python tests/test_metrics.py        # PESQ / STOI and the PESQ loss on made-up speech
+.venv/bin/python tests/test_scripts.py        # every script end to end on a tiny fake dataset (~1 min)
 ```
 
 ## Checkpoints and data
