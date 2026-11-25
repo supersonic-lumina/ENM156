@@ -26,3 +26,8 @@ pystoi>=0.4
 torchaudio>=2.1     # keep in step with your torch version
 torch-pesq>=0.1.2
 torch-stoi>=0.2     # only needed for the optional STOI loss term
+
+# --- Optional: plot_runs.py ---
+matplotlib>=3.8
+
+
