@@ -9,6 +9,7 @@ folder (save_run_config), and its log starts with the exact command, so a run
 can be repeated or shared with --config runs/<run>/config.toml.
 """
 import json
+import os
 import shlex
 import sys
 import tomllib
@@ -205,9 +206,16 @@ def log_output(path, init_from=""):
 def get_device(cfg, key="device"):
     """The torch device data.<key> names. A GPU is capped at data.vram_fraction
     of its memory, so going over it is an out-of-memory error instead of the
-    driver moving memory out to RAM, which stalls the GPU and the desktop."""
+    driver moving memory out to RAM, which stalls the GPU and the desktop.
+    On an AMD GPU it also hides MIOpen's warnings, unless MIOPEN_LOG_LEVEL is set."""
     name = cfg["data"][key] or cfg["data"]["device"]
     device = torch.device(name or ("cuda" if torch.cuda.is_available() else "cpu"))
+    if device.type == "cuda" and torch.version.hip:
+        # For each new convolution shape, MIOpen warns about every algorithm it
+        # skips because PyTorch gave it no scratch memory. The one it picks
+        # instead is as fast (issue #48), so show only errors (level 3);
+        # MIOPEN_LOG_LEVEL=4 brings the warnings back.
+        os.environ.setdefault("MIOPEN_LOG_LEVEL", "3")
     if device.type == "cuda" and cfg["data"]["vram_fraction"] < 1:
         torch.cuda.set_per_process_memory_fraction(cfg["data"]["vram_fraction"], device.index or 0)
     return device
