@@ -124,6 +124,7 @@ def main():
           f"({hours:.1f} h of audio)   val clips: {len(val)}")
 
     opt = torch.optim.Adam(model.parameters(), lr=tr["lr"])
+    grad_clip = tr.get("grad_clip", 0)  # max gradient norm, 0 = off
     criterion = CombinedLoss(cfg, device, sr)
     step = round(cfg["pesq"]["crop_step"] * sr)
     saver = CheckpointSaver(tr["save_checkpoints"], out_dir, higher_is_better=True)
@@ -147,6 +148,8 @@ def main():
                 skipped += 1
                 continue
             loss.backward()
+            if grad_clip:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
             opt.step()
             total_loss += loss.item()
             for name, value in terms.items():
