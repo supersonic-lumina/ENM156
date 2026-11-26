@@ -123,7 +123,10 @@ def main():
     print(f"  train clips: {len(train)} of at least {cfg['pesq']['crop_seconds']} s "
           f"({hours:.1f} h of audio)   val clips: {len(val)}")
 
-    opt = torch.optim.Adam(model.parameters(), lr=tr["lr"])
+    if tr.get("optimizer", "adam") == "adamw":
+        opt = torch.optim.AdamW(model.parameters(), lr=tr["lr"], weight_decay=tr.get("weight_decay", 0.01))
+    else:
+        opt = torch.optim.Adam(model.parameters(), lr=tr["lr"])
     criterion = CombinedLoss(cfg, device, sr)
     step = round(cfg["pesq"]["crop_step"] * sr)
     saver = CheckpointSaver(tr["save_checkpoints"], out_dir, higher_is_better=True)
