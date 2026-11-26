@@ -5,6 +5,7 @@
 voicebank_dir = "/path/to/VoiceBank-DEMAND-16k/data"
 # train_dir = "/path/to/mixtures" # e.g. made by denoiser/make_mixtures.py
 # val_dir = "/path/to/mixtures"
+# dns4_dir = "/path/to/dns4" # python -m denoiser.dns4 extract ... (docs/datasets.md)
 # device = "cpu"
 # audio_device = "cpu" # keep train.py's training audio in RAM; only one batch at a time on the GPU
 

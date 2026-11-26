@@ -86,7 +86,7 @@ def add_config_args(ap):
 
 # Machine-specific settings (paths, GPU), saved only as comments in a run's config.toml.
 MACHINE_SETTINGS = {
-    "data": ("voicebank_dir", "train_dir", "val_dir", "test_dir", "audio_cache",
+    "data": ("voicebank_dir", "train_dir", "val_dir", "test_dir", "dns4_dir", "dnsmos_model", "audio_cache",
              "device", "audio_device", "vram_fraction"),
     "mix": ("vctk_dir", "demand_dir", "voicebank_logs"),
 }
