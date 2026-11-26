@@ -52,6 +52,35 @@ def merge(base, overrides):
             base[key] = value
     return base
 
+def validate_config(
+    schema: dict[str, object],
+    overrides: dict[str, object],
+    source: str = "config",
+    prefix: str = "",
+) -> None:
+    """Validate that the overrides match the schema. If not, raises a ValueError"""
+    for applied_key, applied_value in overrides.items():
+        path = f"{prefix}.{applied_key}" if prefix else applied_key
+
+        if applied_key not in schema:
+            raise ValueError(
+                f"'{source}' tried to apply an unexpected key: '{path}'"
+            )
+
+        expected_value = schema[applied_key]
+
+        if isinstance(expected_value, dict):
+            if not isinstance(applied_value, dict):
+                raise ValueError(
+                    f"'{source}' expresses '{path}' as a plain value, but it should be a TOML table."
+                )
+
+            validate_config(expected_value, applied_value, source, path)
+
+        elif isinstance(applied_value, dict):
+            raise ValueError(
+                f"'{source}' expresses '{path}' as a TOML table, but it should be a plain value."
+            )
 
 def parse_set(item):
     """'train.epochs=5' -> {'train': {'epochs': 5}}. Values are read as TOML
