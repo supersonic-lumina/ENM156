@@ -60,13 +60,23 @@ def compute_pesq(clean: Wave, est: Wave, sr: int = SAMPLE_RATE, mode: str = "wb"
         return math.nan
 
 
-METRICS = ("pesq", "stoi", "estoi", "csig", "cbak", "covl", "ssnr")
+METRICS = ("pesq", "stoi", "estoi", "csig", "cbak", "covl", "ssnr", "sisnr")
+
+
+def compute_sisnr(clean: Wave, est: Wave) -> float:
+    """Scale-invariant SNR in dB (Le Roux et al. 2019), both signals with their mean removed."""
+    length = min(len(clean), len(est))
+    c = clean[:length] - clean[:length].mean()
+    e = est[:length] - est[:length].mean()
+    target = np.dot(e, c) / (np.dot(c, c) + 1e-12) * c
+    return float(10 * np.log10(np.dot(target, target) / (np.dot(e - target, e - target) + 1e-12) + 1e-12))
 
 
 def score_pair(clean: Wave, est: Wave, sr: int = SAMPLE_RATE) -> Scores:
     """Every measure in METRICS, of `est` against the reference `clean`."""
     pesq_wb = compute_pesq(clean, est, sr)
     return {
+        "sisnr": compute_sisnr(clean, est),
         "pesq": pesq_wb,
         "stoi": compute_stoi(clean, est, sr),
         "estoi": compute_stoi(clean, est, sr, extended=True),
