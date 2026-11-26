@@ -13,16 +13,44 @@ import os
 import shlex
 import sys
 import tomllib
+import subprocess
+import torch
+from dataclassess import dataclass
+from typing import Any
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
-import torch
+@dataclass (frozen=True, slots=True)
+class Setting:
+        kind: type
+        choices: tuple | None = None
+        minimum: float | None = None
+        maximum: float | None = None
 
-ROOT = Path(__file__).resolve().parent.parent
+def get_repo_root(start: Path | None = None) -> Path:
+    """Objective repo root retrieval."""
+    start = Path(start or Path.cwd()).expanduser().resolve()
+
+    if not start.exists():
+        raise FileNotFoundError(f"Path {start} does not exist.")
+
+    if start.is_file():
+        start = start.parent
+
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=start,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return Path(result.stdout.strip()).resolve()
+
+ROOT = get_repo_root()
+GLOBAL_CONFIG = ROOT / "config.toml"
 LOCAL_CONFIG = ROOT / "config.local.toml"
 MODEL_SECTIONS = ("stft", "model", "tcn", "snn")  # what a checkpoint stores: needed to rebuild the model
-
 
 def merge(base, overrides):
     for key, value in overrides.items():
@@ -32,6 +60,35 @@ def merge(base, overrides):
             base[key] = value
     return base
 
+def validate_config(
+    schema: dict[str, object],
+    overrides: dict[str, object],
+    source: str = "config",
+    prefix: str = "",
+) -> None:
+    """Validate that the overrides match the schema. If not, raises a ValueError"""
+    for applied_key, applied_value in overrides.items():
+        path = f"{prefix}.{applied_key}" if prefix else applied_key
+
+        if applied_key not in schema:
+            raise ValueError(
+                f"'{source}' tried to apply an unexpected key: '{path}'"
+            )
+
+        expected_value = schema[applied_key]
+
+        if isinstance(expected_value, dict):
+            if not isinstance(applied_value, dict):
+                raise ValueError(
+                    f"'{source}' expresses '{path}' as a plain value, but it should be a TOML table."
+                )
+
+            validate_config(expected_value, applied_value, source, path)
+
+        elif isinstance(applied_value, dict):
+            raise ValueError(
+                f"'{source}' expresses '{path}' as a TOML table, but it should be a plain value."
+            )
 
 def parse_set(item):
     """'train.epochs=5' -> {'train': {'epochs': 5}}. Values are read as TOML
@@ -58,9 +115,10 @@ def read_toml(path: Path) -> dict[str, object]:
 def load_config(overrides: Sequence[str] = ()) -> dict[str, object]:
     """The settings: config.toml, config.local.toml, then `overrides` in order:
     --set items ("section.key=value") and --config files ("@" + path)."""
-    cfg = read_toml(ROOT / "config.toml")
+    global_cfg = read_toml(GLOBAL_CONFIG)
     if LOCAL_CONFIG.exists():
-        merge(cfg, read_toml(LOCAL_CONFIG))
+        local_cfg = read_toml(LOCAL_CONFIG)
+        merge(global_cfg, local_cfg)
     for item in overrides:
         if item.startswith(CONFIG_FILE_MARK):
             file = item[len(CONFIG_FILE_MARK):].strip()
@@ -69,10 +127,10 @@ def load_config(overrides: Sequence[str] = ()) -> dict[str, object]:
             path = resolve_path(file)
             if not path.is_file():
                 raise SystemExit(f"--config: no such file {path}")
-            merge(cfg, read_toml(path))
+            merge(global_cfg, read_toml(path))
         else:
-            merge(cfg, parse_set(item))
-    return cfg
+            merge(global_cfg, parse_set(item))
+    return global_cfg
 
 
 def add_config_args(ap):
