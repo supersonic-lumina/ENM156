@@ -14,11 +14,19 @@ import shlex
 import sys
 import tomllib
 import subprocess
+import torch
+from dataclassess import dataclass
+from typing import Any
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
-import torch
+@dataclass (frozen=true, slots=true)
+    class Setting:
+        kind: type
+        choices: tuple | None = None
+        minimum: float | None = None
+        maximum: float | None = None
 
 def get_repo_root(start: Path | None = None) -> Path:
     """Objective repo root retrieval."""
