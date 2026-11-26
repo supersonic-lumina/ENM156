@@ -11,6 +11,9 @@ train_dir = "" # folder with train-*.parquet; "" = voicebank_dir
 val_dir = "" # folder with val-*.parquet; "" = voicebank_dir, which has none, so its test-*.parquet
              # (the test set itself) is used for validation
 test_dir = "" # folder with test-*.parquet; "" = voicebank_dir
+dns4_dir = "data/dns4" # DNS Challenge 4 data at 16 kHz (python -m denoiser.dns4; docs/datasets.md): the folder
+                       # that holds datasets_fullband/
+dnsmos_model = "data/dnsmos/sig_bak_ovr.onnx" # DNSMOS P.835 (denoiser.dnsmos; docs/datasets.md)
 sample_rate = 16000 # Hz
 audio_cache = "runs/audio_cache" # train_pesq.py: the decoded training audio is written here once (VoiceBank: ~9 GB) and
                                  # shared by every run, so runs side by side need its RAM only once; "" = each

@@ -150,6 +150,8 @@ types out, and validate on VCTK speakers that VoiceBank doesn't use (`[mix]`).
 | `denoiser/config.py` | settings loading: config.toml → config.local.toml → `--config` / `--set`; a run's config.toml |
 | `denoiser/data.py` | reading clips from the parquet files, training crops |
 | `denoiser/make_mixtures.py` | 8 s train/val mixtures from VoiceBank, VCTK and DEMAND |
+| `denoiser/dns4.py` | DNS Challenge 4: download, 16 kHz unpacking, train/val mixtures |
+| `denoiser/dnsmos.py` | DNSMOS P.835, a no-reference quality score |
 | `denoiser/features.py` | causal / centred STFT, long-window pooling, compression |
 | `denoiser/pipeline.py` | model inputs, targets, loss and output for each setting |
 | `denoiser/nets.py` | the networks (MLP, TCN) |

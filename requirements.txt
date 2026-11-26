@@ -12,7 +12,7 @@
 # --- Core: training, data loading, live denoising ---
 torch>=2.1
 numpy>=1.24
-scipy>=1.10         # denoiser/make_mixtures.py (resampling)
+scipy>=1.10         # resampling: denoiser/make_mixtures.py, denoiser/dns4.py
 soundfile>=0.12     # reading and writing audio
 pyarrow>=14         # parquet datasets
 
@@ -21,6 +21,7 @@ pyarrow>=14         # parquet datasets
 # compiler and the Python headers (Ubuntu/WSL: sudo apt install build-essential python3-dev).
 pesq>=0.0.4
 pystoi>=0.4
+onnxruntime>=1.16  # DNSMOS P.835: denoiser/dnsmos.py
 
 # --- PESQ-loss training: train_pesq.py, denoiser/pesq_loss.py ---
 torchaudio>=2.1     # keep in step with your torch version
