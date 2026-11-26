@@ -23,7 +23,7 @@ vram_fraction = 0.9 # share of the GPU's memory PyTorch may use: the rest is lef
 
 [stft]
 n_fft = 512 # Samples per frame. Tradeoff between either time or frequency resolution
-hop = 128 # How many samples the frame window moves between frames (must be less than n_fft)
+hop = 128 # How many samples the frame window moves between frames (must follow hop=n_FFT * (1/k))
 long_factor = 0 # Extra input from a window n_fft * long_factor samples long; 0 = off
 causal = true # Frames only see the past (needed live); false = centred frames
 
