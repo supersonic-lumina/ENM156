@@ -18,7 +18,8 @@ from denoiser.config import (add_config_args, describe_device, get_device, load_
                              log_output, print_config, resolve_path, save_run_config)
 from denoiser.data import (epoch_crops, gather_segments, load_pairs, release_freed_memory,
                            sample_ladder, split_files, stack_waves, swap_in_clean)
-from denoiser.model import CheckpointSaver, LrSchedule, describe_model, initial_model, save_checkpoint
+from denoiser.model import (CheckpointSaver, LrSchedule, clip_gradients, describe_grad_norms, describe_model,
+                            initial_model, save_checkpoint)
 from denoiser.pipeline import loss_fn, save_samples, segment_frames
 
 
@@ -85,7 +86,7 @@ def main():
     schedule, step = LrSchedule(tr, steps_per_epoch), 0
     for epoch in range(1, tr["epochs"] + 1):
         clips, firsts = epoch_crops(train.frames, crop)
-        total_loss = 0.0
+        total_loss, grad_norms = 0.0, []
         for i in range(0, len(clips), crops_per_batch):
             c, f = clips[i:i + crops_per_batch], firsts[i:i + crops_per_batch]
             x, y = crop_batch(train, c, f, crop, history, cfg, device, tr["clean_share"])
@@ -95,6 +96,7 @@ def main():
             # one output per crop frame; the history frames are only looked at
             loss = loss_fn(model.forward_valid(x), x[:, history:], y, cfg)
             loss.backward()
+            grad_norms.append(clip_gradients(model, tr["grad_clip"]))
             opt.step()
             total_loss += loss.item() * len(c)
         train_loss = total_loss / len(clips)
@@ -103,7 +105,7 @@ def main():
         val_loss = evaluate_loss(model, val, cfg, device)
         model.train()
         print(f"epoch {epoch:3d}  train_loss={train_loss:.5f}  val_loss={val_loss:.5f}  "
-              f"lr={lr:.1e}")
+              f"lr={lr:.1e}" + describe_grad_norms(grad_norms, tr["grad_clip"]))
         saver.epoch_done(model, cfg, epoch, val_loss)
 
     save_checkpoint(model, cfg, out_dir / "model.pt")

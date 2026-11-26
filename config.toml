@@ -74,6 +74,9 @@ decay_share = 0.5 # wsd: the last share (0..1) of all batches, where the lr deca
 lr_end = 1e-5 # wsd: the lr at the last batch
 batch_size = 128 # frames per batch (crops per batch = batch_size / crop_frames)
 crop_frames = 1 # consecutive frames per training example; 1 is fine for the mlp, tcn wants ~100-300
+grad_clip = 0.0 # > 0: scale the gradients down when their total norm exceeds this; 0 = off. Guards against a
+                # rare huge gradient (spiking networks trained through time) wrecking a run. Pick it from the
+                # grad_norm the epoch lines show: a little above its usual value; 1-5 is typical
 max_train = 0 # clips; 0 = all (VoiceBank: 11572). All clips are held in RAM
 max_val = 256 # validation clips; 0 = all (VoiceBank: its 824 test clips)
 train_every = 1 # train_pesq.py: use each Nth training clip only (the files are sorted by speaker,
