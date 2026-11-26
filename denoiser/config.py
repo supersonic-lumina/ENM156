@@ -21,8 +21,8 @@ from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
-@dataclass (frozen=true, slots=true)
-    class Setting:
+@dataclass (frozen=True, slots=True)
+class Setting:
         kind: type
         choices: tuple | None = None
         minimum: float | None = None
