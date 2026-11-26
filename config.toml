@@ -1,4 +1,5 @@
-# Shared default settings. Don't put personal settings here: anything that
+# Shared default settings and the SOT for available settings.
+# Don't put personal settings here: anything that
 # depends on your machine (dataset path, device, sizes that must fit your
 # VRAM) goes in config.local.toml, which overrides these keys and is
 # git-ignored. A single run can override either with --set, e.g.
