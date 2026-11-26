@@ -50,6 +50,11 @@ def evaluate_loss(model, waves, cfg, device):
 
 
 def main():
+    print("DEPRECATED: train.py will be removed. Use train_pesq.py instead, which trains the same models\n"
+        "on whole clips. For MSE-only training like train.py's:\n"
+        "  .venv/bin/python train_pesq.py --set pesq.pesq_weight=0 --set pesq.stoi_weight=0\n"
+        "To continue from a checkpoint, use --set pesq.init_from=runs/<run>/model.pt instead of train.init_from.")
+  
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     add_config_args(ap)
