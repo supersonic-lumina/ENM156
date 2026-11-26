@@ -124,6 +124,28 @@ class CheckpointSaver:
         print(f"  saved {path.name}")
 
 
+def clip_gradients(model, max_norm):
+    """Total norm of the gradients (2-norm over all of them) before any clipping,
+    as a float. max_norm > 0 scales them down to that norm when they're larger;
+    0 only measures, so the gradients and the run stay exactly as without it."""
+    if max_norm > 0:
+        return torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm).item()
+    grads = [p.grad for p in model.parameters() if p.grad is not None]
+    if not grads:
+        return 0.0
+    return torch.linalg.vector_norm(torch.stack([torch.linalg.vector_norm(g) for g in grads])).item()
+
+
+def describe_grad_norms(norms, max_norm):
+    """'grad_norm=1.23' for an epoch's norms, plus the share of clipped batches when clipping is on."""
+    if not norms:
+        return ""
+    text = f"  grad_norm={sum(norms) / len(norms):.3g}"
+    if max_norm > 0:
+        text += f" (clipped {sum(n > max_norm for n in norms) / len(norms):.0%})"
+    return text
+
+
 class LrSchedule:
     """The lr of each training step (batch), from the [train] settings:
     first warmup_steps rising linearly to lr, then

@@ -21,7 +21,8 @@ from denoiser.config import (add_config_args, describe_device, get_device, load_
                              log_output, print_config, resolve_path, save_run_config)
 from denoiser.data import (load_crops, load_pairs, random_crops, sample_ladder, split_files,
                            swap_in_clean)
-from denoiser.model import CheckpointSaver, LrSchedule, describe_model, initial_model, save_checkpoint
+from denoiser.model import (CheckpointSaver, LrSchedule, clip_gradients, describe_grad_norms, describe_model,
+                            initial_model, save_checkpoint)
 from denoiser.features import analysis
 from denoiser.pesq_loss import make_pesq_loss
 from denoiser.pipeline import enhance, filterbank, loss_fn, run_model, save_samples, target_frames
@@ -134,7 +135,7 @@ def main():
     schedule, n_steps = LrSchedule(tr, len(batches)), 0
     for epoch in range(1, tr["epochs"] + 1):
         model.train()
-        total_loss, term_sums, skipped = 0.0, {}, 0
+        total_loss, term_sums, skipped, grad_norms = 0.0, {}, 0, []
         random.shuffle(train)
         for i in batches:
             noisy, clean = random_crops(train[i:i + size], crop, device)
@@ -147,6 +148,7 @@ def main():
                 skipped += 1
                 continue
             loss.backward()
+            grad_norms.append(clip_gradients(model, tr["grad_clip"]))
             opt.step()
             total_loss += loss.item()
             for name, value in terms.items():
@@ -158,7 +160,7 @@ def main():
         model.eval()
         val_pesq = mean_mos(criterion.pesq, val, cfg, device, step, model)
         print(f"epoch {epoch:3d}  train_loss={train_loss:.4f} ({terms_text})  val_PESQ={val_pesq:.3f}  "
-              f"lr={lr:.1e}"
+              f"lr={lr:.1e}" + describe_grad_norms(grad_norms, tr["grad_clip"])
               + (f"  (skipped {skipped} non-finite batches)" if skipped else ""))
         saver.epoch_done(model, cfg, epoch, val_pesq)
 
