@@ -13,16 +13,36 @@ import os
 import shlex
 import sys
 import tomllib
+import subprocess
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
 import torch
 
-ROOT = Path(__file__).resolve().parent.parent
+def get_repo_root(start: Path | None = None) -> Path:
+    """Objective repo root retrieval."""
+    start = Path(start or Path.cwd()).expanduser().resolve()
+
+    if not start.exists():
+        raise FileNotFoundError(f"Path {start} does not exist.")
+
+    if start.is_file():
+        start = start.parent
+
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=start,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return Path(result.stdout.strip()).resolve()
+
+ROOT = get_repo_root()
+GLOBAL_CONFIG = ROOT / "config.toml"
 LOCAL_CONFIG = ROOT / "config.local.toml"
 MODEL_SECTIONS = ("stft", "model", "tcn", "snn")  # what a checkpoint stores: needed to rebuild the model
-
 
 def merge(base, overrides):
     for key, value in overrides.items():
@@ -58,9 +78,10 @@ def read_toml(path: Path) -> dict[str, object]:
 def load_config(overrides: Sequence[str] = ()) -> dict[str, object]:
     """The settings: config.toml, config.local.toml, then `overrides` in order:
     --set items ("section.key=value") and --config files ("@" + path)."""
-    cfg = read_toml(ROOT / "config.toml")
+    global_cfg = read_toml(GLOBAL_CONFIG)
     if LOCAL_CONFIG.exists():
-        merge(cfg, read_toml(LOCAL_CONFIG))
+        local_cfg = read_toml(LOCAL_CONFIG)
+        merge(global_cfg, local_cfg)
     for item in overrides:
         if item.startswith(CONFIG_FILE_MARK):
             file = item[len(CONFIG_FILE_MARK):].strip()
@@ -69,10 +90,10 @@ def load_config(overrides: Sequence[str] = ()) -> dict[str, object]:
             path = resolve_path(file)
             if not path.is_file():
                 raise SystemExit(f"--config: no such file {path}")
-            merge(cfg, read_toml(path))
+            merge(global_cfg, read_toml(path))
         else:
-            merge(cfg, parse_set(item))
-    return cfg
+            merge(global_cfg, parse_set(item))
+    return global_cfg
 
 
 def add_config_args(ap):
